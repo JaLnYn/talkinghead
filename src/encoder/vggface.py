@@ -212,9 +212,16 @@ if __name__ == "__main__":
     frame1 = np.array(video_dataset[0][0])
     frame1 = (frame1 + 1) / 2
     frame1 = np.clip(frame1, 0, 1)
-    print(video_dataset[0][0].reshape(1,224,224,3).permute(0, 3, 1, 2).shape)
+    print(video_dataset[0][0].unsqueeze(0).permute(0, 3, 1, 2).shape)
+    print(video_dataset[0][0].unsqueeze(0).permute(0, 3, 1, 2).shape)
     print(model(torch.zeros(1, 3, 224, 224)))
-    print(model(video_dataset[0][0].reshape(1, 224, 224, 3 ).permute(0, 3, 1, 2)))
+    f0 = video_dataset[0][0].unsqueeze(0).permute(0, 3, 1, 2)
+    f1 = video_dataset[0][1].unsqueeze(0).permute(0, 3, 1, 2)
+    f2 = video_dataset[1][0].unsqueeze(0).permute(0, 3, 1, 2)
+    e0 = model(f0)
+    e1 = model(f1)
+    e2 = model(f2)
+    print((e0-e1).sum(), (e2-e0).sum())
     # print(frame1)
 
     plt.imshow(frame1)
