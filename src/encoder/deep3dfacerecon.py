@@ -1247,8 +1247,66 @@ class FaceReconModel(BaseModel):
         pred_coeffs['lm68'] = pred_lm
         savemat(name,pred_coeffs)
 
+class BaseOptions():
+    """This class defines options used during both training and test time.
 
-def get_face_recon_model(opt):
+    It also implements several helper functions such as parsing, printing, and saving the options.
+    It also gathers additional options defined in <modify_commandline_options> functions in both dataset class and model class.
+    """
+
+    def __init__(self, cmd_line=None):
+        """Reset the class; indicates the class hasn't been initailized"""
+        self.initialized = False
+        self.cmd_line = None
+        if cmd_line is not None:
+            self.cmd_line = cmd_line.split()
+
+    def initialize(self, parser):
+        """Define the common options that are used in both training and test."""
+        # basic parameters
+        parser.add_argument('--name', type=str, default='face_recon', help='name of the experiment. It decides where to store samples and models')
+        parser.add_argument('--gpu_ids', type=str, default='0', help='gpu ids: e.g. 0  0,1,2, 0,2. use -1 for CPU')
+        parser.add_argument('--checkpoints_dir', type=str, default='./checkpoints', help='models are saved here')
+        parser.add_argument('--vis_batch_nums', type=float, default=1, help='batch nums of images for visulization')
+        parser.add_argument('--eval_batch_nums', type=float, default=float('inf'), help='batch nums of images for evaluation')
+        parser.add_argument('--use_ddp', type=str2bool, nargs='?', const=True, default=True, help='whether use distributed data parallel')
+        parser.add_argument('--ddp_port', type=str, default='12355', help='ddp port')
+        parser.add_argument('--display_per_batch', type=str2bool, nargs='?', const=True, default=True, help='whether use batch to show losses')
+        parser.add_argument('--add_image', type=str2bool, nargs='?', const=True, default=True, help='whether add image to tensorboard')
+        parser.add_argument('--world_size', type=int, default=1, help='batch nums of images for evaluation')
+
+        # model parameters
+        parser.add_argument('--model', type=str, default='facerecon', help='chooses which model to use.')
+
+        # additional parameters
+        parser.add_argument('--epoch', type=str, default='latest', help='which epoch to load? set to latest to use latest cached model')
+        parser.add_argument('--verbose', action='store_true', help='if specified, print more debugging information')
+        parser.add_argument('--suffix', default='', type=str, help='customized suffix: opt.name = opt.name + suffix: e.g., {model}_{netG}_size{load_size}')
+
+        self.initialized = True
+        return parser
+
+class TestOptions(BaseOptions):
+    """This class includes test options.
+
+    It also includes shared options defined in BaseOptions.
+    """
+
+    def initialize(self, parser):
+        parser = BaseOptions.initialize(self, parser)  # define shared options
+        parser.add_argument('--phase', type=str, default='test', help='train, val, test, etc')
+        parser.add_argument('--dataset_mode', type=str, default=None, help='chooses how datasets are loaded. [None | flist]')
+        parser.add_argument('--img_folder', type=str, default='examples', help='folder for test images.')
+
+        # Dropout and Batchnorm has different behavior during training and test.
+        self.isTrain = False
+        return parser
+
+def get_face_recon_model():
+    opt=TestOptions
     model = FaceReconModel(opt)
     model.setup(opt)
     return model
+
+
+
