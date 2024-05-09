@@ -191,7 +191,7 @@ def vgg_m_face_bn_dag(weights_path=None, **kwargs):
 
 
 if __name__ == "__main__":
-    from src.encoder.vggface import vgg_face_dag
+    # from src.encoder.vggface import vgg_face_dag
     from torch.utils.data import DataLoader
     from src.dataloader import VideoDataset, transform  # Import the dataset class and transformation
     import matplotlib.pyplot as plt

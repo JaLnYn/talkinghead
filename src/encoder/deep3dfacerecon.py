@@ -8,8 +8,12 @@ from collections import OrderedDict
 from torch import nn
 import cv2
 
+import dlib
+
 import trimesh
 from abc import ABC, abstractmethod
+
+from array import array
 
 from typing import Type, Any, Callable, Union, List, Optional
 
@@ -68,82 +72,97 @@ def str2bool(v):
         raise ArgumentTypeError('Boolean value expected.')
 
 
+# load expression basis
+# def LoadExpBasis(bfm_folder='BFM'):
+#     n_vertex = 53215
+#     Expbin = open('models/BFM/Exp_Pca.bin', 'rb')
+#     exp_dim = array('i')
+#     exp_dim.fromfile(Expbin, 1)
+#     expMU = array('f')
+#     expPC = array('f')
+#     expMU.fromfile(Expbin, 3*n_vertex)
+#     expPC.fromfile(Expbin, 3*exp_dim[0]*n_vertex)
+#     Expbin.close()
+# 
+#     expPC = np.array(expPC)
+#     expPC = np.reshape(expPC, [exp_dim[0], -1])
+#     expPC = np.transpose(expPC)
+# 
+#     expEV = np.loadtxt('./models/BFM/std_exp.txt')
+# 
+#     return expPC, expEV
+# 
+# def transferBFM09(bfm_folder='BFM'):
+#     print('Transfer BFM09 to BFM_model_front......')
+#     original_BFM = loadmat('models/BFM/01_MorphableModel.mat')
+#     shapePC = original_BFM['shapePC']  # shape basis
+#     shapeEV = original_BFM['shapeEV']  # corresponding eigen value
+#     shapeMU = original_BFM['shapeMU']  # mean face
+#     texPC = original_BFM['texPC']  # texture basis
+#     texEV = original_BFM['texEV']  # eigen value
+#     texMU = original_BFM['texMU']  # mean texture
+# 
+#     expPC, expEV = LoadExpBasis()
+# 
+#     # transfer BFM09 to our face model
+# 
+#     idBase = shapePC*np.reshape(shapeEV, [-1, 199])
+#     idBase = idBase/1e5  # unify the scale to decimeter
+#     idBase = idBase[:, :80]  # use only first 80 basis
+# 
+#     exBase = expPC*np.reshape(expEV, [-1, 79])
+#     exBase = exBase/1e5  # unify the scale to decimeter
+#     exBase = exBase[:, :64]  # use only first 64 basis
+# 
+#     texBase = texPC*np.reshape(texEV, [-1, 199])
+#     texBase = texBase[:, :80]  # use only first 80 basis
+# 
+#     # our face model is cropped along face landmarks and contains only 35709 vertex.
+#     # original BFM09 contains 53490 vertex, and expression basis provided by Guo et al. contains 53215 vertex.
+#     # thus we select corresponding vertex to get our face model.
+# 
+#     index_exp = loadmat('./models/BFM/BFM_front_idx.mat')
+#     index_exp = index_exp['idx'].astype(np.int32) - 1  # starts from 0 (to 53215)
+# 
+#     index_shape = loadmat('./models/BFM/BFM_exp_idx.mat')
+#     index_shape = index_shape['trimIndex'].astype(
+#         np.int32) - 1  # starts from 0 (to 53490)
+#     index_shape = index_shape[index_exp]
+# 
+#     idBase = np.reshape(idBase, [-1, 3, 80])
+#     idBase = idBase[index_shape, :, :]
+#     idBase = np.reshape(idBase, [-1, 80])
+# 
+#     texBase = np.reshape(texBase, [-1, 3, 80])
+#     texBase = texBase[index_shape, :, :]
+#     texBase = np.reshape(texBase, [-1, 80])
+# 
+#     exBase = np.reshape(exBase, [-1, 3, 64])
+#     exBase = exBase[index_exp, :, :]
+#     exBase = np.reshape(exBase, [-1, 64])
+# 
+#     meanshape = np.reshape(shapeMU, [-1, 3])/1e5
+#     meanshape = meanshape[index_shape, :]
+#     meanshape = np.reshape(meanshape, [1, -1])
+# 
+#     meantex = np.reshape(texMU, [-1, 3])
+#     meantex = meantex[index_shape, :]
+#     meantex = np.reshape(meantex, [1, -1])
+# 
+#     # other info contains triangles, region used for computing photometric loss,
+#     # region used for skin texture regularization, and 68 landmarks index etc.
+#     other_info = loadmat('models/BFM/facemodel_info.mat')
+#     frontmask2_idx = other_info['frontmask2_idx']
+#     skinmask = other_info['skinmask']
+#     keypoints = other_info['keypoints']
+#     point_buf = other_info['point_buf']
+#     tri = other_info['tri']
+#     tri_mask2 = other_info['tri_mask2']
+# 
+#     # save our face model
+#     savemat('modelsBFM_model_front.mat'), {'meanshape': meanshape, 'meantex': meantex, 'idBase': idBase, 'exBase': exBase, 'texBase': texBase,
+#             'tri': tri, 'point_buf': point_buf, 'tri_mask2': tri_mask2, 'keypoints': keypoints, 'frontmask2_idx': frontmask2_idx, 'skinmask': skinmask})
 
-class MeshRenderer(nn.Module):
-    def __init__(self,
-                rasterize_fov,
-                znear=0.1,
-                zfar=10, 
-                rasterize_size=224,
-                use_opengl=True):
-        super(MeshRenderer, self).__init__()
-
-        x = np.tan(np.deg2rad(rasterize_fov * 0.5)) * znear
-        self.ndc_proj = torch.tensor(ndc_projection(x=x, n=znear, f=zfar)).matmul(
-                torch.diag(torch.tensor([1., -1, -1, 1])))
-        self.rasterize_size = rasterize_size
-        self.use_opengl = use_opengl
-        self.ctx = None
-    
-    def forward(self, vertex, tri, feat=None):
-        """
-        Return:
-            mask               -- torch.tensor, size (B, 1, H, W)
-            depth              -- torch.tensor, size (B, 1, H, W)
-            features(optional) -- torch.tensor, size (B, C, H, W) if feat is not None
-
-        Parameters:
-            vertex          -- torch.tensor, size (B, N, 3)
-            tri             -- torch.tensor, size (B, M, 3) or (M, 3), triangles
-            feat(optional)  -- torch.tensor, size (B, C), features
-        """
-        device = vertex.device
-        rsize = int(self.rasterize_size)
-        ndc_proj = self.ndc_proj.to(device)
-        # trans to homogeneous coordinates of 3d vertices, the direction of y is the same as v
-        if vertex.shape[-1] == 3:
-            vertex = torch.cat([vertex, torch.ones([*vertex.shape[:2], 1]).to(device)], dim=-1)
-            vertex[..., 1] = -vertex[..., 1] 
-
-
-        vertex_ndc = vertex @ ndc_proj.t()
-        if self.ctx is None:
-            if self.use_opengl:
-                self.ctx = dr.RasterizeGLContext(device=device)
-                ctx_str = "opengl"
-            else:
-                self.ctx = dr.RasterizeCudaContext(device=device)
-                ctx_str = "cuda"
-            print("create %s ctx on device cuda:%d"%(ctx_str, device.index))
-        
-        ranges = None
-        if isinstance(tri, List) or len(tri.shape) == 3:
-            vum = vertex_ndc.shape[1]
-            fnum = torch.tensor([f.shape[0] for f in tri]).unsqueeze(1).to(device) 
-            fstartidx = torch.cumsum(fnum, dim=0) - fnum 
-            ranges = torch.cat([fstartidx, fnum], axis=1).type(torch.int32).cpu()
-            for i in range(tri.shape[0]):
-                tri[i] = tri[i] + i*vum
-            vertex_ndc = torch.cat(vertex_ndc, dim=0)
-            tri = torch.cat(tri, dim=0)
-
-        # for range_mode vetex: [B*N, 4], tri: [B*M, 3], for instance_mode vetex: [B, N, 4], tri: [M, 3]
-        tri = tri.type(torch.int32).contiguous()
-        rast_out, _ = dr.rasterize(self.ctx, vertex_ndc.contiguous(), tri, resolution=[rsize, rsize], ranges=ranges)
-
-        depth, _ = dr.interpolate(vertex.reshape([-1,4])[...,2].unsqueeze(1).contiguous(), rast_out, tri) 
-        depth = depth.permute(0, 3, 1, 2)
-        mask =  (rast_out[..., 3] > 0).float().unsqueeze(1)
-        depth = mask * depth
-        
-
-        image = None
-        if feat is not None:
-            image, _ = dr.interpolate(feat, rast_out, tri)
-            image = image.permute(0, 3, 1, 2)
-            image = mask * image
-        
-        return mask, depth, image
 
 
 class ParametricFaceModel:
@@ -156,13 +175,12 @@ class ParametricFaceModel:
                     ]),
                 focal=1015.,
                 center=112.,
-                is_train=True,
-                default_name='BFM_model_front.mat'):
+                is_train=True):
         
-        if not os.path.isfile(os.path.join(bfm_folder, default_name)):
-            print("what's up with this???")
-            util.transferBFM09(bfm_folder)
-        model = loadmat(os.path.join(bfm_folder, default_name))
+        # if not os.path.isfile(os.path.join(bfm_folder, default_name)):
+        #     print("what's up with this???")
+        #     transferBFM09(bfm_folder)
+        model = loadmat("models/BFM/BFM_model_front.mat") # https://github.com/microsoft/Deep3DFaceReconstruction/tree/master/BFM
         # mean face shape. [3*N,1]
         self.mean_shape = model['meanshape'].astype(np.float32)
         # identity basis. [3*N,80]
@@ -439,9 +457,9 @@ class BaseModel(ABC):
             -- self.optimizers (optimizer list):    define and initialize optimizers. You can define one optimizer for each network. If two networks are updated at the same time, you can use itertools.chain to group them. See cycle_gan_model.py for an example.
         """
         self.opt = opt
-        self.isTrain = opt.isTrain
+        self.isTrain = opt["is_train"]
         self.device = torch.device('cpu') 
-        self.save_dir = os.path.join(opt.checkpoints_dir, opt.name)  # save all the checkpoints to save_dir
+        self.save_dir = opt["checkpoints_dir"]
         self.loss_names = []
         self.model_names = []
         self.visual_names = []
@@ -461,19 +479,6 @@ class BaseModel(ABC):
             return grad_hook
         return hook_gen, saved_dict
 
-    @staticmethod
-    def modify_commandline_options(parser, is_train):
-        """Add new model-specific options, and rewrite default values for existing options.
-
-        Parameters:
-            parser          -- original option parser
-            is_train (bool) -- whether training phase or test phase. You can use this flag to add training-specific or test-specific options.
-
-        Returns:
-            the modified parser.
-        """
-        return parser
-
     @abstractmethod
     def set_input(self, input):
         """Unpack input data from the dataloader and perform necessary pre-processing steps.
@@ -482,6 +487,9 @@ class BaseModel(ABC):
             input (dict): includes the data itself and its metadata information.
         """
         pass
+
+    def __call__(self, *args, **kwargs):
+        return self.forward(*args, **kwargs)
 
     @abstractmethod
     def forward(self):
@@ -505,9 +513,7 @@ class BaseModel(ABC):
             print("=="*10)
             #  self.schedulers = [networks.get_scheduler(optimizer, opt) for optimizer in self.optimizers]
         
-        if not self.isTrain or opt.continue_train:
-            load_suffix = opt.epoch
-            self.load_networks(load_suffix)
+        self.load_networks("./models/face3drecon.pth")
  
             
         # self.print_networks(opt.verbose)
@@ -649,20 +655,16 @@ class BaseModel(ABC):
         else:
             self.__patch_instance_norm_state_dict(state_dict, getattr(module, key), keys, i + 1)
 
-    def load_networks(self, epoch):
+    def load_networks(self, networkName):
         """Load all the networks from the disk.
 
         Parameters:
             epoch (int) -- current epoch; used in the file name '%s_net_%s.pth' % (epoch, name)
         """
-        if self.opt.isTrain and self.opt.pretrained_name is not None:
-            load_dir = os.path.join(self.opt.checkpoints_dir, self.opt.pretrained_name)
-        else:
-            load_dir = self.save_dir    
-        load_filename = 'epoch_%s.pth' % (epoch)
-        load_path = os.path.join(load_dir, load_filename)
-        state_dict = torch.load(load_path, map_location=self.device)
-        print('loading the model from %s' % load_path)
+           
+        load_filename = networkName 
+        state_dict = torch.load(load_filename, map_location=self.device)
+        print('loading the model from %s' % load_filename)
 
         for name in self.model_names:
             if isinstance(name, str):
@@ -670,22 +672,6 @@ class BaseModel(ABC):
                 if isinstance(net, torch.nn.DataParallel):
                     net = net.module
                 net.load_state_dict(state_dict[name])
-        
-        if self.opt.phase != 'test':
-            if self.opt.continue_train:
-                print('loading the optim from %s' % load_path)
-                for i, optim in enumerate(self.optimizers):
-                    optim.load_state_dict(state_dict['opt_%02d'%i])
-
-                try:
-                    print('loading the sched from %s' % load_path)
-                    for i, sched in enumerate(self.schedulers):
-                        sched.load_state_dict(state_dict['sched_%02d'%i])
-                except:
-                    print('Failed to load schedulers, set schedulers according to epoch count manually')
-                    for i, sched in enumerate(self.schedulers):
-                        sched.last_epoch = self.opt.epoch_count - 1
-                    
 
     def print_networks(self, verbose):
         """Print the total number of parameters in the network and (if verbose) network architecture
@@ -1048,61 +1034,6 @@ def define_net_recon(net_recon, use_last_fc=False, init_path=None):
 
 class FaceReconModel(BaseModel):
 
-    @staticmethod
-    def modify_commandline_options(parser, is_train=True):
-        """  Configures options specific for CUT model
-        """
-        # net structure and parameters
-        parser.add_argument('--net_recon', type=str, default='resnet50', choices=['resnet18', 'resnet34', 'resnet50'], help='network structure')
-        parser.add_argument('--init_path', type=str, default='checkpoints/init_model/resnet50-0676ba61.pth')
-        parser.add_argument('--use_last_fc', type=str2bool, nargs='?', const=True, default=False, help='zero initialize the last fc')
-        parser.add_argument('--bfm_folder', type=str, default='BFM')
-        parser.add_argument('--bfm_model', type=str, default='BFM_model_front.mat', help='bfm model')
-
-        # renderer parameters
-        parser.add_argument('--focal', type=float, default=1015.)
-        parser.add_argument('--center', type=float, default=112.)
-        parser.add_argument('--camera_d', type=float, default=10.)
-        parser.add_argument('--z_near', type=float, default=5.)
-        parser.add_argument('--z_far', type=float, default=15.)
-        parser.add_argument('--use_opengl', type=str2bool, nargs='?', const=True, default=True, help='use opengl context or not')
-
-        # if is_train:
-        #     # training parameters
-        #     parser.add_argument('--net_recog', type=str, default='r50', choices=['r18', 'r43', 'r50'], help='face recog network structure')
-        #     parser.add_argument('--net_recog_path', type=str, default='checkpoints/recog_model/ms1mv3_arcface_r50_fp16/backbone.pth')
-        #     parser.add_argument('--use_crop_face', type=util.str2bool, nargs='?', const=True, default=False, help='use crop mask for photo loss')
-        #     parser.add_argument('--use_predef_M', type=util.str2bool, nargs='?', const=True, default=False, help='use predefined M for predicted face')
-
-        #     
-        #     # augmentation parameters
-        #     parser.add_argument('--shift_pixs', type=float, default=10., help='shift pixels')
-        #     parser.add_argument('--scale_delta', type=float, default=0.1, help='delta scale factor')
-        #     parser.add_argument('--rot_angle', type=float, default=10., help='rot angles, degree')
-
-        #     # loss weights
-        #     parser.add_argument('--w_feat', type=float, default=0.2, help='weight for feat loss')
-        #     parser.add_argument('--w_color', type=float, default=1.92, help='weight for loss loss')
-        #     parser.add_argument('--w_reg', type=float, default=3.0e-4, help='weight for reg loss')
-        #     parser.add_argument('--w_id', type=float, default=1.0, help='weight for id_reg loss')
-        #     parser.add_argument('--w_exp', type=float, default=0.8, help='weight for exp_reg loss')
-        #     parser.add_argument('--w_tex', type=float, default=1.7e-2, help='weight for tex_reg loss')
-        #     parser.add_argument('--w_gamma', type=float, default=10.0, help='weight for gamma loss')
-        #     parser.add_argument('--w_lm', type=float, default=1.6e-3, help='weight for lm loss')
-        #     parser.add_argument('--w_reflc', type=float, default=5.0, help='weight for reflc loss')
-
-
-
-        # opt, _ = parser.parse_known_args()
-        parser.set_defaults(
-                focal=1015., center=112., camera_d=10., use_last_fc=False, z_near=5., z_far=15.
-            )
-        # if is_train:
-        #     parser.set_defaults(
-        #         use_crop_face=True, use_predef_M=False
-        #     )
-        return parser
-
     def __init__(self, opt):
         """Initialize this model class.
 
@@ -1113,22 +1044,29 @@ class FaceReconModel(BaseModel):
         - (required) call the initialization function of BaseModel
         - define loss function, visualization images, model names, and optimizers
         """
+        
         BaseModel.__init__(self, opt)  # call the initialization method of BaseModel
+
+        # self.hog_face_detector = dlib.get_frontal_face_detector()
+        # self.dlib_facelandmark = dlib.shape_predictor("shape_predictor_68_face_landmarks.dat")
         
         self.visual_names = ['output_vis']
         self.model_names = ['net_recon']
         self.parallel_names = self.model_names + ['renderer']
 
         self.net_recon = define_net_recon(
-            net_recon=opt.net_recon, use_last_fc=opt.use_last_fc, init_path=opt.init_path
+            net_recon="resnet50", use_last_fc=False, init_path='checkpoints/init_model/resnet50-0676ba61.pth'
         )
+        center = 112.
+        focal = 1015.
+        camera_distance = 10.
 
         self.facemodel = ParametricFaceModel(
-            bfm_folder=opt.bfm_folder, camera_distance=opt.camera_d, focal=opt.focal, center=opt.center,
-            is_train=self.isTrain, default_name=opt.bfm_model
-        )
+            bfm_folder="BFM", camera_distance=camera_distance, focal=focal, center=center,
+            is_train=False
+            )
         
-        fov = 2 * np.arctan(opt.center / opt.focal) * 180 / np.pi
+        fov = 2 * np.arctan(center / focal) * 180 / np.pi
         # self.renderer = MeshRenderer(
         #     rasterize_fov=fov, znear=opt.z_near, zfar=opt.z_far, rasterize_size=int(2 * opt.center), use_opengl=opt.use_opengl
         # )
@@ -1153,8 +1091,8 @@ class FaceReconModel(BaseModel):
         self.trans_m = input['M'].to(self.device) if 'M' in input else None
         self.image_paths = input['im_paths'] if 'im_paths' in input else None
 
-    def forward(self):
-        output_coeff = self.net_recon(self.input_img)
+    def forward(self, img):
+        output_coeff = self.net_recon(img)
         self.facemodel.to(self.device)
         self.pred_vertex, self.pred_tex, self.pred_color, self.pred_lm = \
             self.facemodel.compute_for_render(output_coeff)
@@ -1254,37 +1192,24 @@ class BaseOptions():
     It also gathers additional options defined in <modify_commandline_options> functions in both dataset class and model class.
     """
 
-    def __init__(self, cmd_line=None):
+    def __init__(self):
         """Reset the class; indicates the class hasn't been initailized"""
-        self.initialized = False
-        self.cmd_line = None
-        if cmd_line is not None:
-            self.cmd_line = cmd_line.split()
-
-    def initialize(self, parser):
-        """Define the common options that are used in both training and test."""
-        # basic parameters
-        parser.add_argument('--name', type=str, default='face_recon', help='name of the experiment. It decides where to store samples and models')
-        parser.add_argument('--gpu_ids', type=str, default='0', help='gpu ids: e.g. 0  0,1,2, 0,2. use -1 for CPU')
-        parser.add_argument('--checkpoints_dir', type=str, default='./checkpoints', help='models are saved here')
-        parser.add_argument('--vis_batch_nums', type=float, default=1, help='batch nums of images for visulization')
-        parser.add_argument('--eval_batch_nums', type=float, default=float('inf'), help='batch nums of images for evaluation')
-        parser.add_argument('--use_ddp', type=str2bool, nargs='?', const=True, default=True, help='whether use distributed data parallel')
-        parser.add_argument('--ddp_port', type=str, default='12355', help='ddp port')
-        parser.add_argument('--display_per_batch', type=str2bool, nargs='?', const=True, default=True, help='whether use batch to show losses')
-        parser.add_argument('--add_image', type=str2bool, nargs='?', const=True, default=True, help='whether add image to tensorboard')
-        parser.add_argument('--world_size', type=int, default=1, help='batch nums of images for evaluation')
-
-        # model parameters
-        parser.add_argument('--model', type=str, default='facerecon', help='chooses which model to use.')
-
-        # additional parameters
-        parser.add_argument('--epoch', type=str, default='latest', help='which epoch to load? set to latest to use latest cached model')
-        parser.add_argument('--verbose', action='store_true', help='if specified, print more debugging information')
-        parser.add_argument('--suffix', default='', type=str, help='customized suffix: opt.name = opt.name + suffix: e.g., {model}_{netG}_size{load_size}')
-
-        self.initialized = True
-        return parser
+        self.options = {
+            'name': 'face_recon',
+            'gpu_ids': '0',
+            'checkpoints_dir': './models',
+            'vis_batch_nums': 1,
+            'eval_batch_nums': float('inf'),
+            'use_ddp': True,
+            'ddp_port': '12355',
+            'display_per_batch': True,
+            'add_image': True,
+            'world_size': 1,
+            'model': 'facerecon',
+            'epoch': 'latest',
+            'verbose': False,
+            'suffix': ''
+        }
 
 class TestOptions(BaseOptions):
     """This class includes test options.
@@ -1292,21 +1217,44 @@ class TestOptions(BaseOptions):
     It also includes shared options defined in BaseOptions.
     """
 
-    def initialize(self, parser):
-        parser = BaseOptions.initialize(self, parser)  # define shared options
-        parser.add_argument('--phase', type=str, default='test', help='train, val, test, etc')
-        parser.add_argument('--dataset_mode', type=str, default=None, help='chooses how datasets are loaded. [None | flist]')
-        parser.add_argument('--img_folder', type=str, default='examples', help='folder for test images.')
+    def __init__(self):
+        BaseOptions.__init__(self)
+        self.options.update({
+            'phase': 'test',
+            'dataset_mode': None,
+            'img_folder': 'examples',
+            'is_train': False,
+        })
 
-        # Dropout and Batchnorm has different behavior during training and test.
-        self.isTrain = False
-        return parser
-
-def get_face_recon_model():
-    opt=TestOptions
+def get_face_recon_model(model_path):
+    opt=TestOptions().options
+    opt["checkpoints_dir"] = model_path
     model = FaceReconModel(opt)
     model.setup(opt)
     return model
 
+if __name__ == '__main__':
+    # from src.encoder.vggface import vgg_face_dag
+    from torch.utils.data import DataLoader
+    from src.dataloader import VideoDataset, transform  # Import the dataset class and transformation
+    import matplotlib.pyplot as plt
+    import torch
+    import numpy as np
 
+    model = get_face_recon_model("./models/face3drecon.pth")
 
+    video_dataset = VideoDataset(root_dir='./dataset/mp4', transform=transform)
+
+    print(video_dataset[0].shape)
+    print(video_dataset[0][0].shape)
+    # print(video_dataset[0][0])
+
+    # print(model(video_dataset[0][0].unsqueeze(0)))
+
+    print(video_dataset[0][0].unsqueeze(0).permute(0, 3, 1, 2).shape)
+    print(video_dataset[0][0].unsqueeze(0).permute(0, 3, 1, 2).shape)
+    print(model(torch.zeros(1, 3, 224, 224)))
+    f0 = video_dataset[0][0].unsqueeze(0).permute(0, 3, 1, 2)
+    e0 = model(f0)
+    print(e0)
+    # print(frame1)
