@@ -611,36 +611,6 @@ class BaseModel(ABC):
                 errors_ret[name] = float(getattr(self, 'loss_' + name))  # float(...) works for both scalar tensor and float number
         return errors_ret
 
-    def save_networks(self, epoch):
-        """Save all the networks to the disk.
-
-        Parameters:
-            epoch (int) -- current epoch; used in the file name '%s_net_%s.pth' % (epoch, name)
-        """
-        if not os.path.isdir(self.save_dir):
-            os.makedirs(self.save_dir)
-
-        save_filename = 'epoch_%s.pth' % (epoch)
-        save_path = os.path.join(self.save_dir, save_filename)
-        
-        save_dict = {}
-        for name in self.model_names:
-            if isinstance(name, str):
-                net = getattr(self, name)
-                if isinstance(net, torch.nn.DataParallel) or isinstance(net,
-                        torch.nn.parallel.DistributedDataParallel):
-                    net = net.module
-                save_dict[name] = net.state_dict()
-                
-
-        for i, optim in enumerate(self.optimizers):
-            save_dict['opt_%02d'%i] = optim.state_dict()
-
-        for i, sched in enumerate(self.schedulers):
-            save_dict['sched_%02d'%i] = sched.state_dict()
-        
-        torch.save(save_dict, save_path)
-
     def __patch_instance_norm_state_dict(self, state_dict, module, keys, i=0):
         """Fix InstanceNorm checkpoints incompatibility (prior to 0.4)"""
         key = keys[i]
@@ -1092,48 +1062,28 @@ class FaceReconModel(BaseModel):
         self.image_paths = input['im_paths'] if 'im_paths' in input else None
 
     def forward(self, img):
-        output_coeff = self.net_recon(img)
-        self.facemodel.to(self.device)
-        self.pred_vertex, self.pred_tex, self.pred_color, self.pred_lm = \
-            self.facemodel.compute_for_render(output_coeff)
-        # self.pred_mask, _, self.pred_face = self.renderer(
-        #     self.pred_vertex, self.facemodel.face_buf, feat=self.pred_color)
-        
-        self.pred_coeffs_dict = self.facemodel.split_coeff(output_coeff)
+        with torch.no_grad():
+            output_coeff = self.net_recon(img)
+            self.facemodel.to(self.device)
+            pred_vertex, pred_tex, pred_color, pred_lm = \
+                self.facemodel.compute_for_render(output_coeff)
 
-
-    def compute_losses(self):
-        """Calculate losses, gradients, and update network weights; called in every training iteration"""
-
-        assert self.net_recog.training == False
-        trans_m = self.trans_m
-        if not self.opt.use_predef_M:
-            # trans_m = estimate_norm_torch(self.pred_lm, self.input_img.shape[-2])
-            print("FAILFAILFAIL")
-
-        pred_feat = self.net_recog(self.pred_face, trans_m)
-        gt_feat = self.net_recog(self.input_img, self.trans_m)
-        self.loss_feat = self.opt.w_feat * self.compute_feat_loss(pred_feat, gt_feat)
-
-        face_mask = self.pred_mask
-        if self.opt.use_crop_face:
-            face_mask, _, _ = self.renderer(self.pred_vertex, self.facemodel.front_face_buf)
-        
-        face_mask = face_mask.detach()
-        self.loss_color = self.opt.w_color * self.comupte_color_loss(
-            self.pred_face, self.input_img, self.atten_mask * face_mask)
-        
-        loss_reg, loss_gamma = self.compute_reg_loss(self.pred_coeffs_dict, self.opt)
-        self.loss_reg = self.opt.w_reg * loss_reg
-        self.loss_gamma = self.opt.w_gamma * loss_gamma
-
-        self.loss_lm = self.opt.w_lm * self.compute_lm_loss(self.pred_lm, self.gt_lm)
-
-        self.loss_reflc = self.opt.w_reflc * self.compute_reflc_loss(self.pred_tex, self.facemodel.skin_mask)
-
-        self.loss_all = self.loss_feat + self.loss_color + self.loss_reg + self.loss_gamma \
-                        + self.loss_lm + self.loss_reflc
+            return pred_vertex, pred_tex, pred_color, pred_lm   
             
+            #pred_coeffs_dict = self.facemodel.split_coeff(output_coeff)
+
+            # output_vis = pred_face * pred_mask + (1 - pred_mask) * img
+            # utput_vis_numpy_raw = 255. * output_vis.detach().cpu().permute(0, 2, 3, 1).numpy()
+            
+            #output_vis_numpy = np.concatenate((input_img_numpy, 
+            #                        output_vis_numpy_raw), axis=-2)
+
+            # output_vis = torch.tensor(
+            #         output_vis_numpy / 255., dtype=torch.float32
+            #     ).permute(0, 3, 1, 2).to(self.device)
+            
+            # return pred_coeffs_dict
+
 
     def optimize_parameters(self, isTrain=True):
         self.forward()               
@@ -1247,14 +1197,32 @@ if __name__ == '__main__':
 
     print(video_dataset[0].shape)
     print(video_dataset[0][0].shape)
-    # print(video_dataset[0][0])
 
-    # print(model(video_dataset[0][0].unsqueeze(0)))
-
-    print(video_dataset[0][0].unsqueeze(0).permute(0, 3, 1, 2).shape)
-    print(video_dataset[0][0].unsqueeze(0).permute(0, 3, 1, 2).shape)
-    print(model(torch.zeros(1, 3, 224, 224)))
     f0 = video_dataset[0][0].unsqueeze(0).permute(0, 3, 1, 2)
-    e0 = model(f0)
-    print(e0)
+    f1 = video_dataset[0][1].unsqueeze(0).permute(0, 3, 1, 2)
+    f2 = video_dataset[1][0].unsqueeze(0).permute(0, 3, 1, 2)
+    e0, a0, b0, l0 = model(f0)
+    e1, a1, b1, l1 = model(f1)
+    e2, a2, b2, l2 = model(f2)
+    print((e0 - e1).sum(), (e2 - e0).sum())
+    print((a0 - a1).sum(), (a2 - a0).sum())
+    print((b0 - b1).sum(), (b2 - b0).sum())
+    print((l0 - l1).sum(), (l2 - l0).sum())
+    recon_shape = e2  # get reconstructed shape
+    recon_shape[..., -1] = 10 - recon_shape[..., -1] # from camera space to world space
+    recon_shape = recon_shape.cpu().numpy()[0]
+    trimesh.Trimesh(vertices=recon_shape, faces=model.facemodel.face_buf.cpu().numpy(), vertex_colors=np.clip(255. * 0, 0, 255).astype(np.uint8), process=False).export("nice.obj")
+    image = f2.squeeze(0)
+
+    # Convert from CxHxW to HxWxC for visualization (channel first to channel last)
+    image = image.permute(1, 2, 0)
+
+    # Normalize the image for visualization
+    image = (image - image.min()) / (image.max() - image.min())
+
+    # Display the image using matplotlib
+    plt.imshow(image)
+    plt.axis('off')
+    plt.savefig('image.png', bbox_inches='tight', pad_inches=0)
+    
     # print(frame1)
