@@ -1061,10 +1061,13 @@ class FaceReconModel(BaseModel):
         self.trans_m = input['M'].to(self.device) if 'M' in input else None
         self.image_paths = input['im_paths'] if 'im_paths' in input else None
 
-    def forward(self, img):
+    def forward(self, img, compute_render=False):
         with torch.no_grad():
             output_coeff = self.net_recon(img)
+            if not compute_render:
+                return output_coeff
             self.facemodel.to(self.device)
+            print(output_coeff)
             pred_vertex, pred_tex, pred_color, pred_lm = \
                 self.facemodel.compute_for_render(output_coeff)
 
