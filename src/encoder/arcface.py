@@ -206,7 +206,7 @@ class face_learner(object):
             self.head.load_state_dict(torch.load(save_path+'/head_{}'.format(fixed_str)))
             self.optimizer.load_state_dict(torch.load(save_path+'/optimizer_{}'.format(fixed_str)))
 
-def get_model(model_path):
+def get_model_arcface(model_path):
     fl = face_learner()
     fl.load_state(model_path, True, True)
     fl.model.eval()
@@ -224,7 +224,7 @@ if __name__ == "__main__":
     model_path = "/home/jalnyn/git/talkinghead/models/arcface2/model_ir_se50.pth"
     print(video_dataset[0].shape)
     print(video_dataset[0][0].shape)
-    learner = get_model(model_path)
+    learner = get_model_arcface(model_path)
     frame0 = video_dataset[0][0].permute(2, 0, 1)
     frame1 = video_dataset[0][1].permute(2, 0, 1)
     frame2 = video_dataset[1][0].permute(2, 0, 1)

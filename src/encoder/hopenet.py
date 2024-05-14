@@ -81,6 +81,13 @@ class Hopenet(nn.Module):
 
         return real_yaw, real_pitch, real_roll, x
 
+def get_model_hopenet(pretrained_path):
+    pretrained_hopenet = Hopenet(torchvision.models.resnet.Bottleneck, [3, 4, 6, 3], num_bins=66).cuda()
+    pretrained_hopenet.load_state_dict(torch.load(pretrained_path, map_location=torch.device("cuda")))
+    pretrained_hopenet.requires_grad_(False)
+    return pretrained_hopenet
+
+
 transformations = transforms.Compose([transforms.Resize(224),
     transforms.CenterCrop(224),
     transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])])
@@ -99,10 +106,8 @@ if __name__ == "__main__":
     # https://github.com/natanielruiz/deep-head-pose/blob/master/code/test_on_video.py
     print(video_dataset[0].shape)
     print(video_dataset[0][0].shape)
-    pretrained_hopenet = Hopenet(torchvision.models.resnet.Bottleneck, [3, 4, 6, 3], num_bins=66).cuda()
     pretrained_path = "./models/hopenet_robust_alpha1.pkl" # https://drive.google.com/open?id=1m25PrSE7g9D2q2XJVMR6IA7RaCvWSzCR
-    pretrained_hopenet.load_state_dict(torch.load(pretrained_path, map_location=torch.device("cuda")))
-    pretrained_hopenet.requires_grad_(False)
+    pretrained_hopenet = get_model_hopenet(pretrained_path)
     frame = video_dataset[0][0].reshape(1, 224, 224, 3 ).permute(0, 3, 1, 2)
     trans = transformations(frame).cuda()
     print(pretrained_hopenet(trans))

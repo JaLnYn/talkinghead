@@ -6,7 +6,7 @@ from .g3dmodel import G3D
 from .warping import WarpingGenerator
 
 
-class Decoder(nn.Module):
+class FaceDecoder(nn.Module):
     def __init__(self):
         super(Decoder, self).__init__()
         self.warping_module_d = WarpingGenerator()

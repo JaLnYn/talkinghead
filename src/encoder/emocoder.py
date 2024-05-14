@@ -6,9 +6,11 @@ from torch.utils.data import DataLoader
 from PIL import Image
 
 class Emocoder:
-    def __init__(self, num_classes=10, class_weights=None, load_model_path=None):
+    def __init__(self, load_model_path=None):
         self.model = None
         self.model = models.resnet18(pretrained=True)
+
+        num_linear = 256
 
         if load_model_path is not None:
             self.load_model(load_model_path)
@@ -27,7 +29,7 @@ class Emocoder:
             nn.Linear(self.model.fc.in_features, 256),
             nn.ReLU(),
             nn.Dropout(0.5),
-            nn.Linear(256, num_classes)
+            nn.Linear(256, num_linear)
         )
         
         self.transform = transforms.Compose([
@@ -42,10 +44,7 @@ class Emocoder:
         self.model.to(self.device)
         
         # Setting class weights for the loss function
-        if class_weights:
-            self.criterion = nn.CrossEntropyLoss(weight=torch.tensor(class_weights, dtype=torch.float).to(self.device))
-        else:
-            self.criterion = nn.CrossEntropyLoss()
+        self.criterion = nn.CrossEntropyLoss()
 
     def load_data(self, data_path, batch_size=32):
         dataset = datasets.ImageFolder(data_path, transform=self.transform)
@@ -83,11 +82,13 @@ class Emocoder:
             output = self.model(img_tensor)
             print("Output shape:", output.shape) 
 
+def get_trainable_emonet():
+    return Emocoder('path_to_your_train_dataset')
+
 
 # Usage example
 if __name__ == "__main__":
-    class_weights = [1.0, 2.0, 0.5, 1.5, 1.2, 0.8, 1.4, 1.1, 0.9, 1.3]  # Example class weights
-    emocoder = Emocoder('path_to_your_train_dataset', class_weights=class_weights)
+    emocoder = Emocoder('path_to_your_train_dataset')
     emocoder.train(num_epochs=3)
     emocoder.save_model()
     emocoder.load_model('resnet18_finetuned.pth')
