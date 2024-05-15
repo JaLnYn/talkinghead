@@ -970,7 +970,7 @@ class ReconNetWrapper(nn.Module):
         func, last_dim = func_dict[net_recon]
         backbone = func(use_last_fc=use_last_fc, num_classes=self.fc_dim)
         if init_path and os.path.isfile(init_path):
-            state_dict = filter_state_dict(torch.load(init_path, map_location='cpu'))
+            state_dict = filter_state_dict(torch.load(init_path, map_location='cuda'))
             backbone.load_state_dict(state_dict)
             print("loading init net_recon %s from %s" %(net_recon, init_path))
         self.backbone = backbone
@@ -987,6 +987,7 @@ class ReconNetWrapper(nn.Module):
             for m in self.final_layers:
                 nn.init.constant_(m.weight, 0.)
                 nn.init.constant_(m.bias, 0.)
+        self.to(torch.device('cuda'))
 
     def forward(self, x):
         x = self.backbone(x)

@@ -1,31 +1,35 @@
-from .decoder.facedecoder import FaceDecoder
-from .encoder.emocoder import get_trainable_emonet
-from .encoder.deep3dfacerecon import get_face_recon_model
-from .encoder.hopenet import get_model_hopenet
-from .encoder.arcface import get_model_arcface
+from src.decoder.facedecoder import FaceDecoder
+from src.encoder.emocoder import get_trainable_emonet
+from src.encoder.deep3dfacerecon import get_face_recon_model
+from src.encoder.hopenet import get_model_hopenet
+from src.encoder.arcface import get_model_arcface
 import torch
 import torch.nn as nn
+import dlib
 
-class MyModel(nn.Module):
-    def __init__(self, encoder, decoder):
-        super(MyModel, self).__init__()
+class Portrait(nn.Module):
+    def __init__(self):
+        super().__init__()
 
         arcface_model_path = "./models/arcface2/model_ir_se50.pth"
-        3dface_model_path = "./models/face3drecon.pth"
+        face3d_model_path = "./models/face3drecon.pth"
         hope_model_path = "./models/hopenet_robust_alpha1.pkl"
         emo_model_path = "./models/emo_path"
+        emo_model_path = None
 
-        self.3dface = get_face_recon_model(3dface_model_path)
+        self.detector = dlib.get_frontal_face_detector()
+
+        self.face3d = get_face_recon_model(face3d_model_path)
         self.hopenet = get_model_hopenet(hope_model_path)
         self.arcface = get_model_arcface(arcface_model_path)
         self.emodel = get_trainable_emonet(emo_model_path)
 
-        self.decoder = FaceDecoder
+        self.decoder = FaceDecoder()
 
     def forward(self, Xs, Xd):
         # input are images
-        v_s = self.3dface(Xs)
-        e_s = self.arcnet(Xs)
+        v_s = self.face3d(Xs)
+        e_s = self.arcface(Xs)
         r_s = self.hopenet(Xs)
         z_s = self.emodel(Xs)
 
@@ -39,20 +43,17 @@ class MyModel(nn.Module):
 
 
 if __name__ == '__main__':
-    # Create an instance of the encoder
-    encoder = FaceEncoder()
 
-    # Create an instance of the decoder
-    decoder = FaceDecoder()
+    model = Portrait()
 
     # Create an instance of the model
-    model = MyModel(encoder, decoder)
 
     # Create some dummy input data
-    input_data = torch.randn(1, 3, 256, 256)
+    input_data = torch.randn(2, 3, 224, 224).to('cuda')
+    input_data2 = torch.randn(2, 3, 224, 224).to('cuda')
 
     # Pass the input data through the model
-    output = model(input_data)
+    output = model(input_data, input_data2)
 
     # Print the shape of the output
     print(output.shape)

@@ -69,17 +69,17 @@ class Hopenet(nn.Module):
         real_yaw = self.fc_yaw(x)
         real_pitch = self.fc_pitch(x)
         real_roll = self.fc_roll(x)
-        real_yaw = torch.softmax(real_yaw, dim=1)
-        real_pitch = torch.softmax(real_pitch, dim=1)
-        real_roll = torch.softmax(real_roll, dim=1)
-        real_yaw = (real_yaw * self.idx_tensor).sum(dim=1)
-        real_pitch = (real_pitch * self.idx_tensor).sum(dim=1)
-        real_roll = (real_roll * self.idx_tensor).sum(dim=1)
-        real_yaw = (real_yaw - self.n_bins // 2) * 3 * np.pi / 180
-        real_pitch = (real_pitch - self.n_bins // 2) * 3 * np.pi / 180
-        real_roll = (real_roll - self.n_bins // 2) * 3 * np.pi / 180
+        # real_yaw = torch.softmax(real_yaw, dim=1)
+        # real_pitch = torch.softmax(real_pitch, dim=1)
+        # real_roll = torch.softmax(real_roll, dim=1)
+        # real_yaw = (real_yaw * self.idx_tensor).sum(dim=1)
+        # real_pitch = (real_pitch * self.idx_tensor).sum(dim=1)
+        # real_roll = (real_roll * self.idx_tensor).sum(dim=1)
+        # real_yaw = (real_yaw - self.n_bins // 2) * 3 * np.pi / 180
+        # real_pitch = (real_pitch - self.n_bins // 2) * 3 * np.pi / 180
+        # real_roll = (real_roll - self.n_bins // 2) * 3 * np.pi / 180
 
-        return real_yaw, real_pitch, real_roll, x
+        return torch.cat([real_yaw, real_pitch, real_roll], dim=1)
 
 def get_model_hopenet(pretrained_path):
     pretrained_hopenet = Hopenet(torchvision.models.resnet.Bottleneck, [3, 4, 6, 3], num_bins=66).cuda()

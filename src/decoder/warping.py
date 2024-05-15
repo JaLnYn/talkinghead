@@ -25,7 +25,6 @@ class WarpingGenerator(nn.Module):
     def __init__(self, in_channels, out_channels):
         super(WarpingGenerator, self).__init__()
         self.conv1x1 = nn.Conv3d(in_channels, 2048, kernel_size=1)
-        self.reshape = nn.Reshape(-1, 2048, 1, 1, 1)
         self.resblock1 = ResBlock3DAdaptive(2048, 512)
         self.upsample1 = nn.Upsample(scale_factor=(2, 2, 2), mode='trilinear', align_corners=False)
         self.resblock2 = ResBlock3DAdaptive(256, 256)
@@ -40,7 +39,7 @@ class WarpingGenerator(nn.Module):
 
     def forward(self, x):
         x = self.conv1x1(x)
-        x = self.reshape(x)
+        x = x.reshape(-1, 2048, 1, 1, 1)
         x = self.resblock1(x)
         x = self.upsample1(x)
         x = self.resblock2(x)

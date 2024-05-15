@@ -125,12 +125,17 @@ class Backbone(nn.Module):
                                 bottleneck.depth,
                                 bottleneck.stride))
         self.body = nn.Sequential(*modules)
+        self.transforms = trans.Compose([
+                    trans.Resize((112, 112)),
+                    trans.Normalize([0.5, 0.5, 0.5], [0.5, 0.5, 0.5])
+                ])
     
     def forward(self,x):
+        x = self.transforms(x)
         x = self.input_layer(x)
         x = self.body(x)
         x = self.output_layer(x)
-        return torch.norm(x)
+        return x
 
 def get_config(training = True):
     conf = {}
@@ -230,10 +235,10 @@ if __name__ == "__main__":
     frame2 = video_dataset[1][0].permute(2, 0, 1)
     conf = get_config(training=False)
     print(frame0.shape, frame1.shape)
-    emb1 = learner(conf["test_transform"](frame0).unsqueeze(0).to("cuda"))
-    emb2 = learner(conf["test_transform"](frame1).unsqueeze(0).to("cuda"))
-    emb3 = learner(conf["test_transform"](frame2).unsqueeze(0).to("cuda"))
+    emb1 = learner((frame0).unsqueeze(0).to("cuda"))
+    emb2 = learner((frame1).unsqueeze(0).to("cuda"))
+    emb3 = learner((frame2).unsqueeze(0).to("cuda"))
     print(emb1)
     print(emb2)
-    print((emb1 - emb2).sum())
-    print((emb1 - emb3).sum())
+    print(torch.norm(emb1 - emb2))
+    print(torch.norm(emb1 - emb3))

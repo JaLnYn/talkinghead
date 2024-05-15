@@ -8,7 +8,9 @@ from PIL import Image
 class Emocoder:
     def __init__(self, load_model_path=None):
         self.model = None
-        self.model = models.resnet18(pretrained=True)
+        self.model = models.resnet18(weights='IMAGENET1K_V1')
+
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
         num_linear = 256
 
@@ -40,11 +42,13 @@ class Emocoder:
             transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
         ])
         
-        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.model.to(self.device)
         
         # Setting class weights for the loss function
         self.criterion = nn.CrossEntropyLoss()
+
+    def __call__(self, x):
+        return self.model(x)
 
     def load_data(self, data_path, batch_size=32):
         dataset = datasets.ImageFolder(data_path, transform=self.transform)
@@ -82,8 +86,8 @@ class Emocoder:
             output = self.model(img_tensor)
             print("Output shape:", output.shape) 
 
-def get_trainable_emonet():
-    return Emocoder('path_to_your_train_dataset')
+def get_trainable_emonet(emo_path, device='cuda'):
+    return Emocoder(emo_path)
 
 
 # Usage example
