@@ -182,15 +182,15 @@ class ParametricFaceModel:
         #     transferBFM09(bfm_folder)
         model = loadmat("models/BFM/BFM_model_front.mat") # https://github.com/microsoft/Deep3DFaceReconstruction/tree/master/BFM
         # mean face shape. [3*N,1]
-        self.mean_shape = model['meanshape'].astype(np.float32)
+        self.mean_shape = torch.from_numpy(model['meanshape']).float().to('cuda')
         # identity basis. [3*N,80]
-        self.id_base = model['idBase'].astype(np.float32)
+        self.id_base = torch.from_numpy(model['idBase']).float().to('cuda')
         # expression basis. [3*N,64]
-        self.exp_base = model['exBase'].astype(np.float32)
+        self.exp_base = torch.from_numpy(model['exBase']).float().to('cuda')
         # mean face texture. [3*N,1] (0-255)
-        self.mean_tex = model['meantex'].astype(np.float32)
+        self.mean_tex = torch.from_numpy(model['meantex']).to('cuda')
         # texture basis. [3*N,80]
-        self.tex_base = model['texBase'].astype(np.float32)
+        self.tex_base = torch.from_numpy(model['texBase']).to('cuda')
         # face indices for each vertex that lies in. starts from 0. [N,8]
         self.point_buf = model['point_buf'].astype(np.int64) - 1
         # vertex indices for each face. starts from 0. [F,3]
@@ -208,7 +208,7 @@ class ParametricFaceModel:
         
         if recenter:
             mean_shape = self.mean_shape.reshape([-1, 3])
-            mean_shape = mean_shape - np.mean(mean_shape, axis=0, keepdims=True)
+            mean_shape = mean_shape - torch.mean(mean_shape, axis=0, keepdims=True)
             self.mean_shape = mean_shape.reshape([-1, 1])
 
         self.persc_proj = perspective_projection(focal, center)
@@ -442,7 +442,7 @@ class ParametricFaceModel:
 
 
 class BaseModel(ABC):
-    def __init__(self, opt):
+    def __init__(self, opt, device):
         """Initialize the BaseModel class.
 
         Parameters:
@@ -458,7 +458,7 @@ class BaseModel(ABC):
         """
         self.opt = opt
         self.isTrain = opt["is_train"]
-        self.device = torch.device('cpu') 
+        self.device = device
         self.save_dir = opt["checkpoints_dir"]
         self.loss_names = []
         self.model_names = []
@@ -1005,7 +1005,7 @@ def define_net_recon(net_recon, use_last_fc=False, init_path=None):
 
 class FaceReconModel(BaseModel):
 
-    def __init__(self, opt):
+    def __init__(self, opt, device):
         """Initialize this model class.
 
         Parameters:
@@ -1016,7 +1016,7 @@ class FaceReconModel(BaseModel):
         - define loss function, visualization images, model names, and optimizers
         """
         
-        BaseModel.__init__(self, opt)  # call the initialization method of BaseModel
+        BaseModel.__init__(self, opt, device)  # call the initialization method of BaseModel
 
         # self.hog_face_detector = dlib.get_frontal_face_detector()
         # self.dlib_facelandmark = dlib.shape_predictor("shape_predictor_68_face_landmarks.dat")
@@ -1036,6 +1036,8 @@ class FaceReconModel(BaseModel):
             bfm_folder="BFM", camera_distance=camera_distance, focal=focal, center=center,
             is_train=False
             )
+        self.facemodel.to("cuda")
+        print("face model loaded", self.facemodel.device)
         
         fov = 2 * np.arctan(center / focal) * 180 / np.pi
         # self.renderer = MeshRenderer(
@@ -1183,8 +1185,9 @@ class TestOptions(BaseOptions):
 def get_face_recon_model(model_path):
     opt=TestOptions().options
     opt["checkpoints_dir"] = model_path
-    model = FaceReconModel(opt)
+    model = FaceReconModel(opt, "cuda")
     model.setup(opt)
+    
     return model
 
 if __name__ == '__main__':
@@ -1202,12 +1205,12 @@ if __name__ == '__main__':
     print(video_dataset[0].shape)
     print(video_dataset[0][0].shape)
 
-    f0 = video_dataset[0][0].unsqueeze(0).permute(0, 3, 1, 2)
-    f1 = video_dataset[0][1].unsqueeze(0).permute(0, 3, 1, 2)
-    f2 = video_dataset[1][0].unsqueeze(0).permute(0, 3, 1, 2)
-    e0, a0, b0, l0 = model(f0)
-    e1, a1, b1, l1 = model(f1)
-    e2, a2, b2, l2 = model(f2)
+    f0 = video_dataset[0][0].unsqueeze(0).permute(0, 3, 1, 2).to("cuda")
+    f1 = video_dataset[0][1].unsqueeze(0).permute(0, 3, 1, 2).to("cuda")
+    f2 = video_dataset[1][0].unsqueeze(0).permute(0, 3, 1, 2).to("cuda")
+    e0, a0, b0, l0 = model(f0, compute_render=True)
+    e1, a1, b1, l1 = model(f1, compute_render=True)
+    e2, a2, b2, l2 = model(f2, compute_render=True)
     print((e0 - e1).sum(), (e2 - e0).sum())
     print((a0 - a1).sum(), (a2 - a0).sum())
     print((b0 - b1).sum(), (b2 - b0).sum())
@@ -1225,7 +1228,7 @@ if __name__ == '__main__':
     image = (image - image.min()) / (image.max() - image.min())
 
     # Display the image using matplotlib
-    plt.imshow(image)
+    plt.imshow(image.cpu())
     plt.axis('off')
     plt.savefig('image.png', bbox_inches='tight', pad_inches=0)
     

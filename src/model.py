@@ -49,8 +49,8 @@ if __name__ == '__main__':
     # Create an instance of the model
 
     # Create some dummy input data
-    input_data = torch.randn(2, 3, 224, 224).to('cuda')
-    input_data2 = torch.randn(2, 3, 224, 224).to('cuda')
+    input_data = torch.randn(3, 3, 224, 224).to('cuda')
+    input_data2 = torch.randn(3, 3, 224, 224).to('cuda')
 
     # Pass the input data through the model
     output = model(input_data, input_data2)
