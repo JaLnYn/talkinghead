@@ -1067,10 +1067,10 @@ class FaceReconModel(BaseModel):
     def forward(self, img, compute_render=False):
         with torch.no_grad():
             output_coeff = self.net_recon(img)
-            if not compute_render:
-                return output_coeff
+            # if not compute_render:
+            #     return output_coeff
             self.facemodel.to(self.device)
-            print(output_coeff)
+            # print(output_coeff)
             pred_vertex, pred_tex, pred_color, pred_lm = \
                 self.facemodel.compute_for_render(output_coeff)
 
@@ -1215,11 +1215,11 @@ if __name__ == '__main__':
     print((a0 - a1).sum(), (a2 - a0).sum())
     print((b0 - b1).sum(), (b2 - b0).sum())
     print((l0 - l1).sum(), (l2 - l0).sum())
-    recon_shape = e2  # get reconstructed shape
+    recon_shape = e1  # get reconstructed shape
     recon_shape[..., -1] = 10 - recon_shape[..., -1] # from camera space to world space
     recon_shape = recon_shape.cpu().numpy()[0]
     trimesh.Trimesh(vertices=recon_shape, faces=model.facemodel.face_buf.cpu().numpy(), vertex_colors=np.clip(255. * 0, 0, 255).astype(np.uint8), process=False).export("nice.obj")
-    image = f2.squeeze(0)
+    image = f1.squeeze(0)
 
     # Convert from CxHxW to HxWxC for visualization (channel first to channel last)
     image = image.permute(1, 2, 0)

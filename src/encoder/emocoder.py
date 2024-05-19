@@ -28,10 +28,19 @@ class Emocoder:
         
         # Adding custom layers
         self.model.fc = nn.Sequential(
-            nn.Linear(self.model.fc.in_features, 256),
+            nn.Linear(self.model.fc.in_features, 512),
             nn.ReLU(),
             nn.Dropout(0.5),
-            nn.Linear(256, num_linear)
+            nn.Linear(512, 512),
+            nn.ReLU(),
+            nn.Dropout(0.5),
+            nn.Linear(512, 1024),
+            nn.ReLU(),
+            nn.Dropout(0.5),
+            nn.Linear(1024, 512),
+            nn.ReLU(),
+            nn.Dropout(0.5),
+            nn.Linear(512, 512)
         )
         
         self.transform = transforms.Compose([

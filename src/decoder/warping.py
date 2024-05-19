@@ -41,6 +41,7 @@ class WarpingGenerator(nn.Module):
         # self.resblock5 = ResBlock3DAdaptive(32, 32)
         self.resblock5 = nn.GroupNorm(32, 1024)
         self.conv_out = nn.Conv2d(512, 8, kernel_size=3, padding=1)
+        self.conv_out2 = nn.Conv2d(512, 8, kernel_size=3, padding=1)
         self.tanh = nn.Tanh()
         self.to('cuda')
 
@@ -49,7 +50,7 @@ class WarpingGenerator(nn.Module):
         print("l1",x.unsqueeze(1).shape, x.unsqueeze(1).device)
         x = self.conv1x1(x.unsqueeze(1))
         print("l2",x.shape, x.device)
-        x = x.reshape(batch_size, 512, 4, 966)
+        x = x.reshape(batch_size, 512, 4, 512)
         print("l3", x.shape, x.device)
         x = self.resblock1(x)
         print("l4", x.shape, x.device)
@@ -59,7 +60,7 @@ class WarpingGenerator(nn.Module):
         # print("l6", x.shape, x.device)
         # x = self.upsample2(x)
         # x = self.conv2(x)
-        print("l7", x.shape, x.device)
+        print("l6", x.shape, x.device)
         x = self.resblock3(x)
         # print("l8", x.shape, x.device)
         # x = self.upsample3(x)
@@ -69,8 +70,9 @@ class WarpingGenerator(nn.Module):
         # x = self.upsample4(x)
         # print("l12", x.shape, x.device)
         # x = self.resblock5(x)
-        print("l15", x.shape)
+        print("l7", x.shape)
         x = self.conv_out(x)
         x = self.tanh(x)
+        print("l8", x.shape)
         return x
 
