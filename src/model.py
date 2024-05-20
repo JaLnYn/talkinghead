@@ -20,7 +20,7 @@ class Portrait(nn.Module):
         self.detector = dlib.get_frontal_face_detector()
 
         self.face3d = get_face_recon_model(face3d_model_path)
-        self.hopenet = get_model_hopenet(hope_model_path)
+        # self.hopenet = get_model_hopenet(hope_model_path)
         self.arcface = get_model_arcface(arcface_model_path)
         self.emodel = get_trainable_emonet(emo_model_path)
 
@@ -28,15 +28,25 @@ class Portrait(nn.Module):
 
     def forward(self, Xs, Xd):
         # input are images
-        v_s = self.face3d(Xs)
+        coeffs_s = self.face3d(Xs, compute_render=False)
+
+        coef_dict_s = self.face3d.facemodel.split_coeff(coeffs_s)
+        v_s = self.face3d.facemodel.compute_shape(coef_dict_s['id'], coef_dict_s['exp'])
+        tex_s = self.face3d.facemodel.compute_texture(coef_dict_s['tex'])
+
+        print("v_s shape", v_s.shape)
+        print("tex_s shape", tex_s.shape)
+
         e_s = self.arcface(Xs)
-        r_s = self.hopenet(Xs)
+        # r_s = self.hopenet(Xs)
         z_s = self.emodel(Xs)
 
-        r_d = self.hopenet(Xd)
+        coeffs_d = self.face3d(Xd, compute_render=False)
+        coef_dict_d = self.face3d.facemodel.split_coeff(coeffs_d)
+        r_d = self.face3d.facemodel.compute_rotation(coef_dict_d['angle'])
         z_d = self.emodel(Xd)
 
-        Y = self.decoder((v_s, e_s, r_s, z_s), (None, None, r_d, z_d))
+        Y = self.decoder((v_s, e_s, None, z_s), (None, None, r_d, z_d))
 
         return Y
 
