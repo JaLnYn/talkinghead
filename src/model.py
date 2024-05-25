@@ -3,6 +3,7 @@ from src.encoder.emocoder import get_trainable_emonet
 from src.encoder.deep3dfacerecon import get_face_recon_model
 from src.encoder.hopenet import get_model_hopenet
 from src.encoder.arcface import get_model_arcface
+from src.encoder.eapp import get_eapp_model
 import torch
 import torch.nn as nn
 import dlib
@@ -20,7 +21,7 @@ class Portrait(nn.Module):
         self.detector = dlib.get_frontal_face_detector()
 
         self.face3d = get_face_recon_model(face3d_model_path)
-        # self.hopenet = get_model_hopenet(hope_model_path)
+        self.eapp = get_eapp_model(None, "cuda")
         self.arcface = get_model_arcface(arcface_model_path)
         self.emodel = get_trainable_emonet(emo_model_path)
 
@@ -30,23 +31,28 @@ class Portrait(nn.Module):
         # input are images
         coeffs_s = self.face3d(Xs, compute_render=False)
 
+        # coef_dict_s = self.face3d.facemodel.split_coeff(coeffs_s)
+        # v_s = self.face3d.facemodel.compute_shape(coef_dict_s['id'], coef_dict_s['exp'])
+        # tex_s = self.face3d.facemodel.compute_texture(coef_dict_s['tex'])
         coef_dict_s = self.face3d.facemodel.split_coeff(coeffs_s)
-        v_s = self.face3d.facemodel.compute_shape(coef_dict_s['id'], coef_dict_s['exp'])
-        tex_s = self.face3d.facemodel.compute_texture(coef_dict_s['tex'])
+        r_s = coef_dict_s['angle']
+        t_s = coef_dict_s['trans']
+        # print("v_s shape", v_s.shape)
+        # print("tex_s shape", tex_s.shape)
 
-        print("v_s shape", v_s.shape)
-        print("tex_s shape", tex_s.shape)
-
+        v_s = self.eapp(Xs)
         e_s = self.arcface(Xs)
-        # r_s = self.hopenet(Xs)
-        z_s = self.emodel(Xs)
+        z_s = self.emodel(Xs) # expression
 
         coeffs_d = self.face3d(Xd, compute_render=False)
         coef_dict_d = self.face3d.facemodel.split_coeff(coeffs_d)
-        r_d = self.face3d.facemodel.compute_rotation(coef_dict_d['angle'])
-        z_d = self.emodel(Xd)
+        r_d = coef_dict_d['angle']
+        t_d = coef_dict_d['trans']
 
-        Y = self.decoder((v_s, e_s, None, z_s), (None, None, r_d, z_d))
+        z_d = self.emodel(Xd)
+        e_d = self.arcface(Xd)
+
+        Y = self.decoder((v_s, e_s, r_s, t_s, z_s), (None, e_d, r_d, t_d, z_d))
 
         return Y
 

@@ -1,26 +1,12 @@
 import torch
 import torch.nn as nn
 
-class ResBlock2D(nn.Module):
-    def __init__(self, in_channels, out_channels):
-        super(ResBlock2D, self).__init__()
-        self.conv1 = nn.Conv2d(in_channels, out_channels, kernel_size=3, padding=1)
-        self.conv2 = nn.Conv2d(out_channels, out_channels, kernel_size=3, padding=1)
-        self.relu = nn.ReLU(inplace=True)
-
-    def forward(self, x):
-        identity = x
-        out = self.conv1(x)
-        out = self.relu(out)
-        out = self.conv2(out)
-        out += identity
-        out = self.relu(out)
-        return out
+from src.encoder.utils import ResBlock2D    
 
 class G2D(nn.Module):
-    def __init__(self, in_channels, out_channels):
+    def __init__(self):
         super(G2D, self).__init__()
-        self.conv1x1 = nn.Conv2d(in_channels, 512, kernel_size=1)
+        self.conv1x1 = nn.Conv2d(1536, 512, kernel_size=1)
         self.resblock1 = ResBlock2D(512, 512)
         self.resblock2 = ResBlock2D(512, 512)
         self.resblock3 = ResBlock2D(512, 512)
@@ -35,10 +21,12 @@ class G2D(nn.Module):
         self.resblock10 = ResBlock2D(256, 128)
         self.upsample3 = nn.Upsample(scale_factor=2, mode='bilinear', align_corners=False)
         self.resblock11 = ResBlock2D(128, 64)
-        self.conv_out = nn.Conv2d(64, out_channels, kernel_size=3, padding=1)
+        self.conv_out = nn.Conv2d(64, 3, kernel_size=3, padding=1)
+        self.to('cuda' if torch.cuda.is_available() else 'cpu')
 
     def forward(self, x):
-        x = x.reshape(-1, x.size(1), 1, 1)
+        batch_size = x.size(0)
+        x = x.reshape(batch_size, 96*16, 32, 32)
         x = self.conv1x1(x)
         x = self.resblock1(x)
         x = self.resblock2(x)

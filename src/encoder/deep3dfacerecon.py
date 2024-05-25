@@ -1212,11 +1212,13 @@ if __name__ == '__main__':
     c2 = model(f2, compute_render=False)
     coef_dict_1 = model.facemodel.split_coeff(c1)
     coef_dict_2 = model.facemodel.split_coeff(c2)
-    recon_shape = model.facemodel.compute_shape(coef_dict_1['id'], coef_dict_1['exp'])
+    recon_shape = model.facemodel.compute_shape(coef_dict_2['id'], coef_dict_2['exp'])
+    recon_color = model.facemodel.compute_texture(coef_dict_2['tex'])
+    recon_color = recon_color.cpu().numpy()[0]
     # get reconstructed shape
     recon_shape[..., -1] = 10 - recon_shape[..., -1] # from camera space to world space
     recon_shape = recon_shape.cpu().numpy()[0]
-    trimesh.Trimesh(vertices=recon_shape, faces=model.facemodel.face_buf.cpu().numpy(), vertex_colors=np.clip(255. * 0, 0, 255).astype(np.uint8), process=False).export("nice.obj")
+    trimesh.Trimesh(vertices=recon_shape, faces=model.facemodel.face_buf.cpu().numpy(), vertex_colors=np.clip(255. * recon_color, 0, 255).astype(np.uint8), process=False).export("nice.obj")
     image = f2.squeeze(0)
 
     # Convert from CxHxW to HxWxC for visualization (channel first to channel last)

@@ -131,11 +131,12 @@ class Backbone(nn.Module):
                 ])
     
     def forward(self,x):
-        x = self.transforms(x)
-        x = self.input_layer(x)
-        x = self.body(x)
-        x = self.output_layer(x)
-        return x
+        with torch.no_grad():
+            x = self.transforms(x)
+            x = self.input_layer(x)
+            x = self.body(x)
+            x = self.output_layer(x)
+            return x
 
 def get_config(training = True):
     conf = {}

@@ -4,6 +4,7 @@ import torch.nn.functional as F
 from .g2dmodel import G2D
 from .g3dmodel import G3D
 from .warping import WarpingGenerator
+from src.encoder.utils import compute_rotation
 
 
 class FaceDecoder(nn.Module):
@@ -11,16 +12,15 @@ class FaceDecoder(nn.Module):
         super().__init__()
         self.warping_module_d = WarpingGenerator()
         self.warping_module_s = WarpingGenerator()
-        self.g3d = G3D(2, 4)
-        self.g2d = G2D(2, 4)
+        self.g3d = G3D()
+        self.g2d = G2D()
 
     def forward(self, Xs, Xd):
-        (v_s, e_s, r_s, z_s) = Xs
-        (v_d, e_d, r_d, z_d) = Xd
-        print("eshape",e_s.shape)
-        print("rshape",r_s.shape)
-        print("zshape",z_s.shape)
-        print("vshape",v_s.shape)
+        (v_s, e_s, r_s, t_s, z_s) = Xs # v_s*z_s-e_s 
+        (v_d, e_d, r_d, t_d, z_d) = Xd
+        print("vshape", v_s.shape)
+        print("eshape", e_s.shape)
+        print("zshape", z_s.shape)
         # print("vshape",v_s[1].shape)
         # print("vshape",v_s[2].shape)
         # print("vshape",v_s[3].shape)
@@ -29,16 +29,23 @@ class FaceDecoder(nn.Module):
         # print(new_in.shape)
         # warping_mod_s_inp = torch.cat([e_s, r_s, z_s], dim=1)
         # print(warping_mod_s_inp.shape)
-        w_s = self.warping_module_s(e_s + z_s)
-        print(w_s.shape)
+        warp_inputs = torch.cat([e_s + z_s, r_s, t_s], dim=1)
+        w_s = self.warping_module_s(warp_inputs)
+        # print(w_s.shape)
         # print(v_s.shape)
-        g_1 = torch.einsum('nhwc,nc->nhw', w_s, v_s)
-        print(g_1.shape)
+        # print(t_s.shape)
+        print(w_s.shape, v_s.shape)
+        apply_ws = torch.einsum("bdxyz,bwxyz->bdxyz", v_s, w_s)
+        print(apply_ws.shape)
+        g_1 = self.g3d(apply_ws)
+        print("DoneG1", g_1.shape)
 
-        warping_mod_d_inp = torch.cat([e_s, r_d, z_d], dim=1)
+        warp_inputs = torch.cat([e_d + z_d, r_d, t_d], dim=1)
+        w_d = self.warping_module_d(warp_inputs)
 
-        w_d = self.warping_module_s(e_s + z_d)
+        apply_wd = torch.einsum("bdxyz,bwxyz->bdxyz", g_1, w_d)
+        print("apply_wd", apply_wd.shape)
+        g2 = self.g2d(apply_wd)
 
-        print(w_s.shape)
-        print(w_d.shape)
+        print(g2.shape)
         return None
