@@ -43,7 +43,6 @@ class Eapp(nn.Module):
         x = self.gn(x)
         x = self.relu(x)
         x = self.conv1x1(x)
-        # print("sa", x.shape)
         
         # Reshape for 3D convolution
         x = x.view(x.size(0), 96, 16, x.size(2), x.size(3))

@@ -27,7 +27,6 @@ class WarpingGenerator(nn.Module):
         x = self.resblock2(x)
         x = self.upsample2(x)
         x = self.resblock3(x)
-        print(x.shape)
         x = self.conv_out(x)
         x = self.tanh(x)
         return x
