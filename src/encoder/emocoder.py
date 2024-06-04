@@ -5,8 +5,9 @@ from torchvision import models, transforms, datasets
 from torch.utils.data import DataLoader
 from PIL import Image
 
-class Emocoder:
+class Emocoder(nn.Module):
     def __init__(self, load_model_path=None):
+        super(Emocoder, self).__init__()
         self.model = None
         self.model = models.resnet18(weights='IMAGENET1K_V1')
 
@@ -56,7 +57,7 @@ class Emocoder:
         # Setting class weights for the loss function
         self.criterion = nn.CrossEntropyLoss()
 
-    def __call__(self, x):
+    def forward(self, x):
         return self.model(x)
 
     def load_data(self, data_path, batch_size=32):
@@ -101,7 +102,7 @@ def get_trainable_emonet(emo_path, device='cuda'):
 
 # Usage example
 if __name__ == "__main__":
-    emocoder = Emocoder('path_to_your_train_dataset')
+    emocoder = Emocoder(None)
     emocoder.train(num_epochs=3)
     emocoder.save_model()
     emocoder.load_model('resnet18_finetuned.pth')

@@ -9,7 +9,7 @@ from src.encoder.utils import compute_rotation
 
 class FaceDecoder(nn.Module):
     def __init__(self):
-        super().__init__()
+        super(FaceDecoder, self).__init__()
         self.warping_module_d = WarpingGenerator()
         self.warping_module_s = WarpingGenerator()
         self.g3d = G3D()

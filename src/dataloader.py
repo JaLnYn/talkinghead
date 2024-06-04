@@ -23,14 +23,15 @@ class VideoDataset(Dataset):
         video_path = self.video_files[idx]
         vr = VideoReader(video_path, ctx=cpu(0))
         video_data = vr.get_batch(range(len(vr))).asnumpy()  # Load entire video as a numpy array
+        video_tensor = torch.tensor(video_data).float().to('cuda')  # Convert to tensor and transfer to GPU
 
         if self.transform:
-            video_data = self.transform(video_data) #  [T, H, W, C] 
+            video_tensor = self.transform(video_tensor)  # Ensure transforms are compatible with CUDA tensors
 
-        return video_data
+        return video_tensor
 
 # Define transformations
 transform = Compose([
-    Lambda(lambda x: torch.tensor(x).float()),
+    Lambda(lambda x: x.permute(0, 3, 1, 2).float()),
     Lambda(lambda x: (x / 255.0) * 2 - 1)  # Normalize to [-1, 1]
 ])
