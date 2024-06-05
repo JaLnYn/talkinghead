@@ -88,14 +88,14 @@ class PortraitLoss(nn.Module):
     def forward(self, Xs, Xd, Xsp, Xdp, gsd, gsdp, gspd, gspdp):
         # Compute perceptual loss
         Lper = self.perceptual_loss(Xs, Xd, gsd)
-        Lper += self.perceptual_loss(Xs, Xdp, gsdp)
-        Lper += self.perceptual_loss(Xsp, Xd, gspd)
-        Lper += self.perceptual_loss(Xsp, Xdp, gspdp)
+        Lper = Lper + self.perceptual_loss(Xs, Xdp, gsdp)
+        Lper = Lper + self.perceptual_loss(Xsp, Xd, gspd)
+        Lper = Lper + self.perceptual_loss(Xsp, Xdp, gspdp)
 
         Lgan = self.gan_loss(Xs, gsd)
-        Lgan += self.gan_loss(Xs, gsdp)
-        Lgan += self.gan_loss(Xsp, gspd)
-        Lgan += self.gan_loss(Xsp, gspdp)
+        Lgan = Lgan + self.gan_loss(Xs, gsdp)
+        Lgan = Lgan + self.gan_loss(Xsp, gspd)
+        Lgan = Lgan + self.gan_loss(Xsp, gspdp)
 
         Lcyc = self.cycle_loss(Xd, Xdp, gsd, gspd)
 
