@@ -42,8 +42,7 @@ class Portrait(nn.Module):
 
         self.decoder = FaceDecoder()
 
-
-        self.loss = PortraitLoss()
+        self.loss = PortraitLoss(emodel=self.emodel, arcface_model=self.arcface)
 
 
     def select_frames(self, video, device):
@@ -62,20 +61,24 @@ class Portrait(nn.Module):
             epoch_loss = 0
             # Wrap the training loader with tqdm for a progress bar
             train_iterator = tqdm.tqdm(train_loader, desc=f"Epoch {epoch + 1}/{num_epochs}", total=len(train_loader))
-            for Xs, Xd, Xs_prime, Xd_prime in train_iterator:
-                Xs, Xd, Xs_prime, Xd_prime = Xs.to(device), Xd.to(device), Xs_prime.to(device), Xd_prime.to(device)
+            for Xs, Xd, Xsp, Xdp in train_iterator:
+                Xs, Xd, Xsp, Xdp = Xs.to(device), Xd.to(device), Xsp.to(device), Xdp.to(device)
+                
                 optimizer.zero_grad()
-                # Y_pred = self.forward(Xs, Xd)
-                # Y_prime_pred = self.forward(Xs_prime, Xd_prime)
-                pass
-                # Define your actual Y_true and Y_prime_true here
-                # Y_true = ...  # Define how you get Y_true
-                # Y_prime_true = ...  # Similarly for the prime sets
 
-                # loss = loss_function(Y_pred, Y_true) + loss_function(Y_prime_pred, Y_prime_true)
-                # loss.backward()
-                # optimizer.step()
-                # print(f'Epoch {epoch+1}, Loss {loss.item()}')
+                gsd = self(Xs, Xd)
+                gsdp = self(Xs, Xdp)
+                gspd = self(Xsp, Xd)
+                gspdp = self(Xsp, Xdp)
+
+                loss = self.loss(Xs, Xd, Xsp, Xdp, gsd, gsdp, gspd, gspdp)
+                print(Xs.shape)
+                print(Xd.shape)
+                print(loss.shape)
+
+                loss.backward()
+                optimizer.step()
+                print(f'Epoch {epoch+1}, Loss {loss.item()}')
 
 
     def forward(self, Xs, Xd):

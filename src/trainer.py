@@ -40,8 +40,8 @@ import random
 
 # Main function to execute the pipeline
 
-    # Load and preprocess the data
-def load_data(root_dir, batch_size=4):
+# Load and preprocess the data
+def load_data(root_dir, batch_size=8):
     dataset = VideoDataset(root_dir=root_dir, transform=transform)
 
     def collate_frames(batch):
@@ -49,17 +49,29 @@ def load_data(root_dir, batch_size=4):
         random.shuffle(batch) 
 
         # Assuming each batch now contains enough frames for two pairs
-        quarter_point = len(batch) // 4
-        Xs = torch.stack([item[0] for item in batch[:quarter_point]])  # First quarter for Xs
-        Xd = torch.stack([item[0] for item in batch[quarter_point:2*quarter_point]])  # Second quarter for Xd
-        Xs_prime = torch.stack([item[0] for item in batch[2*quarter_point:3*quarter_point]])  # Third quarter for Xs_prime
-        Xd_prime = torch.stack([item[0] for item in batch[3*quarter_point:]])  # Last quarter for Xd_prime
+        half_point = len(batch) // 2
+
+        Xs_stack = []
+        Xd_stack = []
+        for item in batch[:half_point]:
+            Xs_stack.append(random.choice(item))
+            Xd_stack.append(random.choice(item))
+        Xs = torch.stack(Xs_stack)  
+        Xd = torch.stack(Xd_stack)  
+
+        
+        Xs_prime_stack = []
+        Xd_prime_stack = []
+        for item in batch[half_point:]:
+            Xs_prime_stack.append(random.choice(item))
+            Xd_prime_stack.append(random.choice(item))
+        Xs_prime = torch.stack(Xs_prime_stack)  
+        Xd_prime = torch.stack(Xd_prime_stack)  
 
         return Xs, Xd, Xs_prime, Xd_prime
 
     dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True, collate_fn=collate_frames)
     return dataloader
-
 
 def main():
     import argparse
@@ -68,16 +80,14 @@ def main():
     parser.add_argument('--emopath', type=str, default=None, help='Path to the emotion model file. Default is None.')
     parser.add_argument('--eapp_path', type=str, default=None, help='Path to the application data file. Default is None.')
     parser.add_argument('--data_path', type=str, default='./dataset/mp4', help='Path to the dataset. The folder should be folder of mp4s.')
-    parser.add_argument('--batch_size', type=int, default=12, help='batches')
+    parser.add_argument('--batch_size', type=int, default=16, help='batches')
     
     args = parser.parse_args()
 
-    video_dataset = load_data(root_dir='./dataset/mp4')
+    video_dataset = load_data(root_dir='./dataset/mp4', batch_size=args.batch_size)
     print(args.eapp_path, args.emopath)
     p = Portrait(args.eapp_path, args.emopath)
     p.train_model(video_dataset)
-    
-    batch_size = 24
 
 
 if __name__ == '__main__':

@@ -8,36 +8,19 @@ class PerceptualLoss(nn.Module):
     def __init__(self, arcface_model):
         super(PerceptualLoss, self).__init__()
         self.arcface = arcface_model
-        # self.landmarks_detector = dlib.shape_predictor("models/shape_predictor_5_face_landmarks.dat")
         self.imageNet = resnet18(weights='IMAGENET1K_V1')
-
 
     def forward(self, pred, source, driver):
         pred_features = self.arcface(pred)
         target_features = self.arcface(source)
         Lface = torch.norm(pred_features - target_features, dim=1)
 
-        pred_in = self.arcface(pred)
-        target_in = self.arcface(driver)
+        pred_in = self.imageNet(pred) # image net
+        target_in = self.imageNet(source)
         Lin = torch.norm(pred_in - target_in, dim=1)
 
-
         # ADD GAZE LOSS
-
         return Lface + Lin
-
-# class GazeLoss(nn.Module):
-#     def __init__(self, gaze_model):
-#         super(GazeLoss, self).__init__()
-#         self.gaze_model = gaze_model.eval()
-#         for param in self.gaze_model.parameters():
-#             param.requires_grad = False
-# 
-#     def forward(self, pred, target):
-#         pred_gaze = self.gaze_model(pred)
-#         target_gaze = self.gaze_model(target)
-#         loss = F.l1_loss(pred_gaze, target_gaze)
-#         return loss
 
 class GANLoss(nn.Module):
     def __init__(self):
@@ -67,10 +50,20 @@ class GANLoss(nn.Module):
         return loss
 
 class CycleConsistencyLoss(nn.Module):
-    def __init__(self):
+    def __init__(self, emodel):
         super(CycleConsistencyLoss, self).__init__()
+        self.emodel = emodel 
 
-    def forward(self, zsd, zd, zspd, zdp):
+
+    def forward(self, Xd, Xd_prime, gsd, gspd):
+
+        zd = self.emodel(Xd)
+        zdp = self.emodel(Xd_prime)
+
+        zsd = self.emodel(gsd)
+        zspd = self.emodel(gspd)
+
+
         positive_pairs = [(zsd, zd), (zspd, zd)]
         negative_pairs = [(zsd, zdp), (zspd, zdp)]
         
@@ -81,25 +74,29 @@ class CycleConsistencyLoss(nn.Module):
         return loss
 
 class PortraitLoss(nn.Module):
-    def __init__(self, perceptual_weight=1.0, gaze_weight=1.0, gan_weight=1.0, cycle_weight=2.0, arcface_model=None):
+    def __init__(self, perceptual_weight=1.0, gaze_weight=1.0, gan_weight=1.0, cycle_weight=2.0, arcface_model=None, emodel=None):
         super(PortraitLoss, self).__init__()
         self.perceptual_loss = PerceptualLoss(arcface_model)
         self.gan_loss = GANLoss()  # Replace with your discriminator
-        self.cycle_loss = CycleConsistencyLoss()
+        self.cycle_loss = CycleConsistencyLoss(emodel)
         
         self.perceptual_weight = perceptual_weight
         self.gaze_weight = gaze_weight
         self.gan_weight = gan_weight
         self.cycle_weight = cycle_weight
 
-    def forward(self, Xs, Xd, Xsd, Xsp, Xdp, Xspdp, zsd, zd, zspd, zdp):
+    def forward(self, Xs, Xd, Xsp, Xdp, gsd, gsdp, gspd, gspdp):
         # Compute perceptual loss
-        Lper = self.perceptual_loss(Xs, Xd, Xsd)
-        Lper += self.perceptual_loss(Xsp, Xdp, Xspdp)
+        Lper = self.perceptual_loss(Xs, Xd, gsd)
+        Lper += self.perceptual_loss(Xs, Xdp, gsdp)
+        Lper += self.perceptual_loss(Xsp, Xd, gspd)
+        Lper += self.perceptual_loss(Xsp, Xdp, gspdp)
 
-        Lgan = self.gan_loss(Xs, Xsd)
-        Lgan += self.gan_loss(Xdp, Xspdp)
+        Lgan = self.gan_loss(Xs, gsd)
+        Lgan += self.gan_loss(Xs, gsdp)
+        Lgan += self.gan_loss(Xsp, gspd)
+        Lgan += self.gan_loss(Xsp, gspdp)
 
-        Lcyc = self.cycle_loss(zsd, zd, zspd, zdp)
+        Lcyc = self.cycle_loss(Xd, Xdp, gsd, gspd)
 
         return self.perceptual_weight * Lper + self.gan_weight * Lgan + self.cycle_weight * Lcyc
