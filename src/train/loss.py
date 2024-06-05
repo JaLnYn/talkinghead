@@ -22,6 +22,7 @@ class PerceptualLoss(nn.Module):
         # ADD GAZE LOSS
         return Lface + Lin
 
+
 class GANLoss(nn.Module):
     def __init__(self):
         super(GANLoss, self).__init__()
@@ -36,18 +37,21 @@ class GANLoss(nn.Module):
         real_loss = 0
         fake_loss = 0
         for real_output, fake_output in zip(real_outputs, fake_outputs):
-            real_loss += torch.mean(F.relu(1.0 - real_output))
-            fake_loss += torch.mean(F.relu(1.0 + fake_output))
+            real_loss = real_loss  + torch.mean(F.relu(1.0 - real_output))
+            fake_loss = fake_loss  + torch.mean(F.relu(1.0 + fake_output))
 
         # Compute feature matching loss
         feature_matching_loss = 0
-        for real_feat, fake_feat in zip(real_features, fake_features):
-            for rf, ff in zip(real_feat, fake_feat):
-                feature_matching_loss += F.l1_loss(rf.detach(), ff)
+        # Iterate over each scale
+        for scale_real_feats, scale_fake_feats in zip(real_features, fake_features):
+            # For each scale, iterate over each feature map
+            for real_feat, fake_feat in zip(scale_real_feats, scale_fake_feats):
+                # Calculate L1 loss between corresponding features from real and fake images
+                feature_matching_loss = feature_matching_loss + F.l1_loss(real_feat.detach(), fake_feat)
 
-        # Combine hinge and feature matching losses
-        loss = (real_loss + fake_loss) / len(real_outputs) + feature_matching_loss / len(real_features[0])
-        return loss
+        # Normalize losses by number of scales and sum real and fake hinge losses
+        total_loss = (real_loss + fake_loss) / len(real_outputs) + feature_matching_loss / sum(len(feats) for feats in real_features)
+        return total_loss
 
 class CycleConsistencyLoss(nn.Module):
     def __init__(self, emodel):
@@ -99,4 +103,4 @@ class PortraitLoss(nn.Module):
 
         Lcyc = self.cycle_loss(Xd, Xdp, gsd, gspd)
 
-        return self.perceptual_weight * Lper + self.gan_weight * Lgan + self.cycle_weight * Lcyc
+        return sum(self.perceptual_weight * Lper + self.gan_weight * Lgan + self.cycle_weight * Lcyc)

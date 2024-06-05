@@ -43,4 +43,6 @@ class G2D(nn.Module):
         x = self.upsample3(x)
         x = self.resblock11(x)
         x = self.conv_out(x)
+        # x = x[:, :, 6:250, 6:250]
+        x = x[:, :, 16:240, 16:240]
         return x

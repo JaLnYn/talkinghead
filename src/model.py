@@ -72,9 +72,9 @@ class Portrait(nn.Module):
                 gspdp = self(Xsp, Xdp)
 
                 loss = self.loss(Xs, Xd, Xsp, Xdp, gsd, gsdp, gspd, gspdp)
-                print(Xs.shape)
-                print(Xd.shape)
-                print(loss.shape)
+                # print("xs", Xs.shape)
+                # print("xd", Xd.shape)
+                # print("loss", loss.shape)
 
                 loss.backward()
                 optimizer.step()

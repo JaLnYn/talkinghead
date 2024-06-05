@@ -6,7 +6,6 @@ import torch.nn.functional as F
 class PatchDiscriminator(nn.Module):
     def __init__(self, input_channels, num_filters=64):
         super(PatchDiscriminator, self).__init__()
-        # Define layers
         self.conv1 = nn.Conv2d(input_channels, num_filters, kernel_size=4, stride=2, padding=1)
         self.conv2 = nn.Conv2d(num_filters, num_filters * 2, kernel_size=4, stride=2, padding=1)
         self.conv3 = nn.Conv2d(num_filters * 2, num_filters * 4, kernel_size=4, stride=2, padding=1)
@@ -15,13 +14,14 @@ class PatchDiscriminator(nn.Module):
         self.leaky_relu = nn.LeakyReLU(0.2, inplace=True)
 
     def forward(self, x):
-        # Process input through each layer and capture intermediate features
         feat1 = self.leaky_relu(self.conv1(x))
         feat2 = self.leaky_relu(self.conv2(feat1))
         feat3 = self.leaky_relu(self.conv3(feat2))
         feat4 = self.leaky_relu(self.conv4(feat3))
         out = self.final(feat4)
+        # Return both the final output and the list of feature maps
         return out, [feat1, feat2, feat3, feat4]
+
 
 class MultiScalePatchDiscriminator(nn.Module):
     def __init__(self, input_channels, num_filters=64):
@@ -35,9 +35,13 @@ class MultiScalePatchDiscriminator(nn.Module):
         x2 = F.interpolate(x, scale_factor=0.5, mode='bilinear', align_corners=False)
         x3 = F.interpolate(x, scale_factor=0.25, mode='bilinear', align_corners=False)
 
-        # Process each scale
-        out1 = self.scale1_discriminator(x)
-        out2 = self.scale2_discriminator(x2)
-        out3 = self.scale3_discriminator(x3)
+        # Process each scale and collect outputs and features
+        out1, feats1 = self.scale1_discriminator(x)
+        out2, feats2 = self.scale2_discriminator(x2)
+        out3, feats3 = self.scale3_discriminator(x3)
 
-        return out1, out2, out3
+        # Aggregate outputs and features from all scales
+        outputs = [out1, out2, out3]
+        features = [feats1, feats2, feats3]
+        return outputs, features
+
