@@ -66,12 +66,18 @@ class Portrait(nn.Module):
                 
                 optimizer.zero_grad()
 
-                gsd = self(Xs, Xd)
-                gsdp = self(Xs, Xdp)
-                gspd = self(Xsp, Xd)
-                gspdp = self(Xsp, Xdp)
+                gsd, (v_s, e_s, r_s, t_s, z_s), (v_d, e_d, r_d, t_d, z_d)  = self(Xs, Xd, return_components=True)
+                # gsdp = self(Xs, Xdp)
+                gspd, (v_sp, e_sp, r_sp, t_sp, z_sp), (v_d, e_d, r_d, t_d, z_d) = self(Xsp, Xd, return_components=False)
+                # gspdp, (v_sp, e_sp, r_sp, t_sp, z_sp), (v_dp, e_dp, r_dp, t_dp, z_dp) = self(Xsp, Xdp, return_components=True)
 
-                loss = self.loss(Xs, Xd, Xsp, Xdp, gsd, gsdp, gspd, gspdp)
+                # construct vasa loss
+                giiij = self.decoder((v_s, e_s, r_s, t_s, z_s), (None, None, r_s, t_s, z_d))
+                gjjij = self.decoder((v_d, e_d, r_d, t_d, z_d), (None, None, r_s, t_s, z_d))
+
+                gsmod = self.decoder((v_sp, e_sp, r_sp, t_sp, z_sp), (None, None, r_d, t_d, z_d))
+
+                loss = self.loss(Xs, Xd, Xsp, Xdp, gsd, gspd)
                 # print("xs", Xs.shape)
                 # print("xd", Xd.shape)
                 # print("loss", loss.shape)
@@ -81,7 +87,7 @@ class Portrait(nn.Module):
                 print(f'Epoch {epoch+1}, Loss {loss.item()}')
 
 
-    def forward(self, Xs, Xd):
+    def forward(self, Xs, Xd, return_components=False):
         # input are images
         with torch.no_grad():
 
@@ -95,14 +101,16 @@ class Portrait(nn.Module):
             coef_dict_d = self.face3d.facemodel.split_coeff(coeffs_d)
             r_d = coef_dict_d['angle']
             t_d = coef_dict_d['trans']
-            e_d = self.arcface(Xd)
         
         v_s = self.eapp(Xs)
         z_s = self.emodel(Xs) # expression
         z_d = self.emodel(Xd)
 
-        Y = self.decoder((v_s, e_s, r_s, t_s, z_s), (None, e_d, r_d, t_d, z_d))
-
+        Y = self.decoder((v_s, e_s, r_s, t_s, z_s), (None, None, r_d, t_d, z_d))
+        if return_components:
+            v_d = self.eapp(Xd)
+            e_d = self.arcface(Xd)
+            return Y, (v_s, e_s, r_s, t_s, z_s), (v_d, e_d, r_d, t_d, z_d)
         return Y
 
 

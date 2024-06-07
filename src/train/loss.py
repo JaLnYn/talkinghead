@@ -77,6 +77,16 @@ class CycleConsistencyLoss(nn.Module):
         loss = positive_loss + negative_loss
         return loss
 
+class VasaLoss(nn.Module):
+    def __init__(self):
+        super(PortraitLoss, self).__init__()
+
+    def forward(self, giiij, gjjij, ):
+        # Compute perceptual loss
+        TODO descrepency loss giiij and gjjij
+        TODO cosine loss between gsd and gsmod
+
+
 class PortraitLoss(nn.Module):
     def __init__(self, perceptual_weight=1.0, gaze_weight=1.0, gan_weight=1.0, cycle_weight=2.0, arcface_model=None, emodel=None):
         super(PortraitLoss, self).__init__()
@@ -89,17 +99,17 @@ class PortraitLoss(nn.Module):
         self.gan_weight = gan_weight
         self.cycle_weight = cycle_weight
 
-    def forward(self, Xs, Xd, Xsp, Xdp, gsd, gsdp, gspd, gspdp):
+    def forward(self, Xs, Xd, Xsp, Xdp, gsd, gspd): #(self, Xs, Xd, Xsp, Xdp, gsd, gsdp, gspd, gspdp):
         # Compute perceptual loss
         Lper = self.perceptual_loss(Xs, Xd, gsd)
-        Lper = Lper + self.perceptual_loss(Xs, Xdp, gsdp)
+        # Lper = Lper + self.perceptual_loss(Xs, Xdp, gsdp)
         Lper = Lper + self.perceptual_loss(Xsp, Xd, gspd)
-        Lper = Lper + self.perceptual_loss(Xsp, Xdp, gspdp)
+        # Lper = Lper + self.perceptual_loss(Xsp, Xdp, gspdp)
 
         Lgan = self.gan_loss(Xs, gsd)
-        Lgan = Lgan + self.gan_loss(Xs, gsdp)
+        # Lgan = Lgan + self.gan_loss(Xs, gsdp)
         Lgan = Lgan + self.gan_loss(Xsp, gspd)
-        Lgan = Lgan + self.gan_loss(Xsp, gspdp)
+        # Lgan = Lgan + self.gan_loss(Xsp, gspdp)
 
         Lcyc = self.cycle_loss(Xd, Xdp, gsd, gspd)
 

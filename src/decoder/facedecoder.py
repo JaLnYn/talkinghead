@@ -24,7 +24,7 @@ class FaceDecoder(nn.Module):
         apply_ws = torch.einsum("bdxyz,bwxyz->bdxyz", v_s, w_s)
         g_1 = self.g3d(apply_ws)
 
-        warp_inputs = torch.cat([e_d + z_d, r_d, t_d], dim=1)
+        warp_inputs = torch.cat([e_s + z_d, r_d, t_d], dim=1)
         w_d = self.warping_module_d(warp_inputs)
 
         apply_wd = torch.einsum("bdxyz,bwxyz->bdxyz", g_1, w_d)
