@@ -78,6 +78,7 @@ class Portrait(nn.Module):
                 gsmod = self.decoder((v_sp, e_sp, r_sp, t_sp, z_sp), (None, None, r_d, t_d, z_d))
 
                 loss = self.loss(Xs, Xd, Xsp, Xdp, gsd, gspd)
+                # print("loss 1", loss.item())
                 loss = loss + self.v1loss(giiij, gjjij, gsd, gsmod)
                 # print("xs", Xs.shape)
                 # print("xd", Xd.shape)

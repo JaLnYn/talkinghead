@@ -68,27 +68,22 @@ class CycleConsistencyLoss(nn.Module):
         zsd = self.emodel(gsd)
         zspd = self.emodel(gspd)
 
-        # Define the positive and negative pairs
-        positive_pairs = [(zsd, zd), (zspd, zd)]
-        negative_pairs = [(zsd, zdp), (zspd, zdp)]
+
 
         # Calculate cosine similarity and apply margin and scale
         def cosine_distance(z1, z2):
             cosine_similarity = F.cosine_similarity(z1, z2)
-            return self.scale * (cosine_similarity - self.margin)
+            return torch.exp(self.scale * (cosine_similarity - self.margin))
 
-        # Calculate losses for all positive and negative pairs
-        pos_distances = torch.stack([cosine_distance(z1, z2) for z1, z2 in positive_pairs])
-        neg_distances = torch.stack([cosine_distance(z1, z2) for z1, z2 in negative_pairs])
+         # Calculate distances
 
-        # Compute the cosine loss for the positive pairs
-        positive_loss = -torch.log(torch.exp(pos_distances).sum())
+        # Define the positive and negative pairs
+        negative_pairs = [(zsd, zdp), (zspd, zdp)]
+        neg_distances = torch.sum(torch.exp(torch.stack([cosine_distance(z1, z2) for z1, z2 in negative_pairs])))
 
-        # Compute the cosine loss for the negative pairs, note the negation in the exponent
-        negative_loss = -torch.logsumexp(neg_distances, dim=0)
+        loss = - torch.log( cosine_distance(zsd, zd) / (cosine_distance(zsd, zd) + neg_distances + 1e-6))
+        loss = loss - torch.log( cosine_distance(zspd, zd) / (cosine_distance(zspd, zd) + neg_distances + 1e-6))
 
-        # Final loss combines positive and negative parts
-        loss = positive_loss + negative_loss
         return loss
 
 class VasaLoss(nn.Module):
@@ -151,5 +146,7 @@ class PortraitLoss(nn.Module):
         # Lgan = Lgan + self.gan_loss(Xsp, gspdp)
 
         Lcyc = self.cycle_loss(Xd, Xdp, gsd, gspd)
+
+        print("losses:", Lper.item(), Lgan.item(), Lcyc.item())
 
         return sum(self.perceptual_weight * Lper + self.gan_weight * Lgan + self.cycle_weight * Lcyc)
