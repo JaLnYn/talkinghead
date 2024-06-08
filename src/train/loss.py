@@ -13,13 +13,15 @@ class PerceptualLoss(nn.Module):
     def forward(self, pred, source, driver):
         pred_features = self.arcface(pred)
         target_features = self.arcface(source)
-        Lface = torch.norm(pred_features - target_features, dim=1)
+
+        Lface = F.cosine_embedding_loss(pred_features, target_features, torch.ones(pred_features.size(0)).to(pred_features.device))
 
         pred_in = self.imageNet(pred) # image net
         target_in = self.imageNet(source)
         Lin = torch.norm(pred_in - target_in, dim=1)
 
         # ADD GAZE LOSS
+        # TODO gaze discrepancy here
         return Lface + Lin
 
 
@@ -54,37 +56,74 @@ class GANLoss(nn.Module):
         return total_loss
 
 class CycleConsistencyLoss(nn.Module):
-    def __init__(self, emodel):
+    def __init__(self, emodel, scale=5.0, margin=0.2):
         super(CycleConsistencyLoss, self).__init__()
-        self.emodel = emodel 
-
+        self.emodel = emodel
+        self.scale = scale
+        self.margin = margin
 
     def forward(self, Xd, Xd_prime, gsd, gspd):
-
         zd = self.emodel(Xd)
         zdp = self.emodel(Xd_prime)
-
         zsd = self.emodel(gsd)
         zspd = self.emodel(gspd)
 
-
+        # Define the positive and negative pairs
         positive_pairs = [(zsd, zd), (zspd, zd)]
         negative_pairs = [(zsd, zdp), (zspd, zdp)]
-        
-        positive_loss = sum(F.cosine_embedding_loss(z1, z2, torch.ones(z1.size(0)).to(z1.device)) for z1, z2 in positive_pairs)
-        negative_loss = sum(F.cosine_embedding_loss(z1, z2, -torch.ones(z1.size(0)).to(z1.device)) for z1, z2 in negative_pairs)
-        
+
+        # Calculate cosine similarity and apply margin and scale
+        def cosine_distance(z1, z2):
+            cosine_similarity = F.cosine_similarity(z1, z2)
+            return self.scale * (cosine_similarity - self.margin)
+
+        # Calculate losses for all positive and negative pairs
+        pos_distances = torch.stack([cosine_distance(z1, z2) for z1, z2 in positive_pairs])
+        neg_distances = torch.stack([cosine_distance(z1, z2) for z1, z2 in negative_pairs])
+
+        # Compute the cosine loss for the positive pairs
+        positive_loss = -torch.log(torch.exp(pos_distances).sum())
+
+        # Compute the cosine loss for the negative pairs, note the negation in the exponent
+        negative_loss = -torch.logsumexp(neg_distances, dim=0)
+
+        # Final loss combines positive and negative parts
         loss = positive_loss + negative_loss
         return loss
 
 class VasaLoss(nn.Module):
-    def __init__(self):
-        super(PortraitLoss, self).__init__()
+    def __init__(self, face3d, arcface, emodel):
+        super(VasaLoss, self).__init__()
+        self.face3d = face3d
+        self.arcface = arcface
+        self.emodel = emodel
 
-    def forward(self, giiij, gjjij, ):
+    def forward(self, giiij, gjjij, gsd, gsmod):
         # Compute perceptual loss
-        TODO descrepency loss giiij and gjjij
-        TODO cosine loss between gsd and gsmod
+        zi = self.emodel(giiij)
+        zj = self.emodel(gjjij)
+
+        with torch.no_grad():
+
+            coeffs_s = self.face3d(giiij, compute_render=False)
+            coef_dict_s = self.face3d.facemodel.split_coeff(coeffs_s)
+            r_s = coef_dict_s['angle']
+            t_s = coef_dict_s['trans']
+
+            coeffs_d = self.face3d(gjjij, compute_render=False)
+            coef_dict_d = self.face3d.facemodel.split_coeff(coeffs_d)
+            r_d = coef_dict_d['angle']
+            t_d = coef_dict_d['trans']
+
+        loss = F.cosine_embedding_loss(zi, zj, torch.ones(zi.size(0)).to(zi.device))
+        loss = loss + torch.norm(r_s - r_d, dim=1) + torch.norm(t_s - t_d, dim=1)
+        # TODO gaze discrepancy here
+
+        esd = self.arcface(gsd)
+        emod = self.arcface(gsmod)
+
+        loss = loss + F.cosine_embedding_loss(esd, emod, torch.ones(esd.size(0)).to(esd.device))
+        return loss
 
 
 class PortraitLoss(nn.Module):

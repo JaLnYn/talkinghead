@@ -10,7 +10,7 @@ from src.encoder.deep3dfacerecon import get_face_recon_model
 from src.encoder.hopenet import get_model_hopenet
 from src.encoder.arcface import get_model_arcface
 from src.encoder.eapp import get_eapp_model
-from src.train.loss import PortraitLoss
+from src.train.loss import PortraitLoss, VasaLoss
 import torch
 import torch.nn as nn
 import dlib
@@ -43,6 +43,7 @@ class Portrait(nn.Module):
         self.decoder = FaceDecoder()
 
         self.loss = PortraitLoss(emodel=self.emodel, arcface_model=self.arcface)
+        self.v1loss = VasaLoss(face3d=self.face3d, arcface=self.arcface, emodel=self.emodel)
 
 
     def select_frames(self, video, device):
@@ -53,7 +54,6 @@ class Portrait(nn.Module):
 
     def train_model(self, train_loader, num_epochs=10, learning_rate=0.001):
         optimizer = torch.optim.Adam(self.parameters(), lr=learning_rate)
-        loss_function = nn.L1Loss()
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.to(device)
 
@@ -68,7 +68,7 @@ class Portrait(nn.Module):
 
                 gsd, (v_s, e_s, r_s, t_s, z_s), (v_d, e_d, r_d, t_d, z_d)  = self(Xs, Xd, return_components=True)
                 # gsdp = self(Xs, Xdp)
-                gspd, (v_sp, e_sp, r_sp, t_sp, z_sp), (v_d, e_d, r_d, t_d, z_d) = self(Xsp, Xd, return_components=False)
+                gspd, (v_sp, e_sp, r_sp, t_sp, z_sp), (v_d, e_d, r_d, t_d, z_d) = self(Xsp, Xd, return_components=True)
                 # gspdp, (v_sp, e_sp, r_sp, t_sp, z_sp), (v_dp, e_dp, r_dp, t_dp, z_dp) = self(Xsp, Xdp, return_components=True)
 
                 # construct vasa loss
@@ -78,6 +78,7 @@ class Portrait(nn.Module):
                 gsmod = self.decoder((v_sp, e_sp, r_sp, t_sp, z_sp), (None, None, r_d, t_d, z_d))
 
                 loss = self.loss(Xs, Xd, Xsp, Xdp, gsd, gspd)
+                loss = loss + self.v1loss(giiij, gjjij, gsd, gsmod)
                 # print("xs", Xs.shape)
                 # print("xd", Xd.shape)
                 # print("loss", loss.shape)
