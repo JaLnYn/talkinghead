@@ -28,7 +28,6 @@ import random
 #         Xs_prime = video2[video2_idx1]
 #         Xd_prime = video2[video2_idx2]
 # 
-#         print(Xs.shape, Xd.shape, Xs_prime.shape, Xd_prime.shape)
 #         exit()
 #         
 #         batch_Xs.append(Xs)

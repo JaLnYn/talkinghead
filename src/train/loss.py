@@ -147,6 +147,4 @@ class PortraitLoss(nn.Module):
 
         Lcyc = self.cycle_loss(Xd, Xdp, gsd, gspd)
 
-        print("losses:", Lper.item(), Lgan.item(), Lcyc.item())
-
         return sum(self.perceptual_weight * Lper + self.gan_weight * Lgan + self.cycle_weight * Lcyc)

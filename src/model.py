@@ -58,7 +58,7 @@ class Portrait(nn.Module):
         self.to(device)
 
         for epoch in range(num_epochs):
-            epoch_loss = 0
+            running_loss = 0
             # Wrap the training loader with tqdm for a progress bar
             train_iterator = tqdm.tqdm(train_loader, desc=f"Epoch {epoch + 1}/{num_epochs}", total=len(train_loader))
             for Xs, Xd, Xsp, Xdp in train_iterator:
@@ -67,26 +67,25 @@ class Portrait(nn.Module):
                 optimizer.zero_grad()
 
                 gsd, (v_s, e_s, r_s, t_s, z_s), (v_d, e_d, r_d, t_d, z_d)  = self(Xs, Xd, return_components=True)
-                # gsdp = self(Xs, Xdp)
                 gspd, (v_sp, e_sp, r_sp, t_sp, z_sp), (v_d, e_d, r_d, t_d, z_d) = self(Xsp, Xd, return_components=True)
-                # gspdp, (v_sp, e_sp, r_sp, t_sp, z_sp), (v_dp, e_dp, r_dp, t_dp, z_dp) = self(Xsp, Xdp, return_components=True)
 
                 # construct vasa loss
                 giiij = self.decoder((v_s, e_s, r_s, t_s, z_s), (None, None, r_s, t_s, z_d))
                 gjjij = self.decoder((v_d, e_d, r_d, t_d, z_d), (None, None, r_s, t_s, z_d))
-
                 gsmod = self.decoder((v_sp, e_sp, r_sp, t_sp, z_sp), (None, None, r_d, t_d, z_d))
 
                 loss = self.loss(Xs, Xd, Xsp, Xdp, gsd, gspd)
-                # print("loss 1", loss.item())
                 loss = loss + self.v1loss(giiij, gjjij, gsd, gsmod)
-                # print("xs", Xs.shape)
-                # print("xd", Xd.shape)
-                # print("loss", loss.shape)
+
 
                 loss.backward()
                 optimizer.step()
-                print(f'Epoch {epoch+1}, Loss {loss.item()}')
+
+                running_loss += loss.item()
+                train_iterator.set_description(f"Epoch {epoch + 1}/{num_epochs}, Loss {loss.item():.4f}")
+            print(f'Epoch {epoch+1}, Average Loss {running_loss / len(train_loader):.4f}')
+
+
 
 
     def forward(self, Xs, Xd, return_components=False):
