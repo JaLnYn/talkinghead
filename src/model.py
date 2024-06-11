@@ -7,10 +7,10 @@ from src.dataloader import VideoDataset, transform  # Import the dataset class a
 from torch.utils.data import DataLoader
 from src.encoder.emocoder import get_trainable_emonet
 from src.encoder.deep3dfacerecon import get_face_recon_model
-from src.encoder.hopenet import get_model_hopenet
 from src.encoder.arcface import get_model_arcface
 from src.encoder.eapp import get_eapp_model
 from src.train.loss import PortraitLoss, VasaLoss
+from src.train.eye_tracking import get_gaze_model
 import torch
 import torch.nn as nn
 import dlib
@@ -42,8 +42,10 @@ class Portrait(nn.Module):
 
         self.decoder = FaceDecoder()
 
-        self.loss = PortraitLoss(emodel=self.emodel, arcface_model=self.arcface)
-        self.v1loss = VasaLoss(face3d=self.face3d, arcface=self.arcface, emodel=self.emodel)
+        self.gaze_model = get_gaze_model()
+
+        self.loss = PortraitLoss(emodel=self.emodel, arcface_model=self.arcface, gaze_model=self.gaze_model)
+        self.v1loss = VasaLoss(face3d=self.face3d, arcface=self.arcface, emodel=self.emodel, gaze_model=self.gaze_model)
 
 
     def select_frames(self, video, device):

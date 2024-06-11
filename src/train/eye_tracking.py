@@ -75,8 +75,24 @@ class GazeNet(nn.Module):
 
     def get_gaze(self, img):
         img = self.preprocess(img)
-        x = self.forward(img.to(self.device))
+        with torch.no_grad():
+            x = self.forward(img.to(self.device))
         return x
+
+def get_gaze_model():
+    print('Loading MobileFaceGaze model...')
+    device = torch.device("cuda:0" if (torch.cuda.is_available()) else "cpu")
+    model = GazeNet(device)
+
+    if(not torch.cuda.is_available()):
+        print('Tried to load GPU but found none. Please check your environment')
+    state_dict = torch.load("./models/gazenet.pth", map_location=device)
+    model.load_state_dict(state_dict)
+    print('Model loaded using {} as device'.format(device))
+
+    model.eval()
+    return model
+
 
 def reverse_transform():
     return Compose([
@@ -89,18 +105,8 @@ def reverse_transform():
 
 if __name__ == "__main__":
     from src.dataloader import VideoDataset, transform
-    print('Loading MobileFaceGaze model...')
-    device = torch.device("cuda:0" if (torch.cuda.is_available()) else "cpu")
-    model = GazeNet(device)
-
-    if(not torch.cuda.is_available()):
-        print('Tried to load GPU but found none. Please check your environment')
-    state_dict = torch.load("./models/gazenet.pth", map_location=device)
-    model.load_state_dict(state_dict)
-    print('Model loaded using {} as device'.format(device))
-
-    model.eval()
-    
+        
+    model = get_gaze_model()
     video_dataset = VideoDataset(root_dir='./dataset/mp4', transform=transform)
     input_data = video_dataset[0][0:3]
     input_data2 = video_dataset[10][0:3]
