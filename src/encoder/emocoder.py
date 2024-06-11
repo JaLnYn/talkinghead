@@ -83,13 +83,13 @@ class Emocoder(nn.Module):
                 running_loss += loss.item()
             print(f'Epoch {epoch + 1}, Loss: {running_loss / len(train_loader)}')
 
-    def save_model(self, file_path='resnet18_finetuned.pth'):
+    def save_model(self, file_path='./models/portrait/emodel.pth'):
         torch.save(self.model.state_dict(), file_path)
-        print("Model saved successfully.")
+        print(f'Model saved to {file_path}')
 
-    def load_model(self, file_path):
+    def load_model(self, file_path='./models/portrait/emodel.pth'):
         self.model.load_state_dict(torch.load(file_path, map_location=self.device))
-        self.model.eval()
+        print(f'Model loaded from {file_path}')
 
     def predict(self, img_tensor):
         with torch.no_grad():

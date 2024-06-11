@@ -56,17 +56,36 @@ class Eapp(nn.Module):
         
         return x
 
+    def save_model(self, path='./models/portrait/eapp.pth'):
+        """
+        Save the model parameters to the specified path.
+        
+        Args:
+        model (torch.nn.Module): The PyTorch model to save.
+        path (str): Path to the file where the model parameters are saved.
+        """
+        torch.save(self.state_dict(), path)
+        print(f'Model saved to {path}')
+
+    def load_model(self, path='./models/portrait/eapp.pth'):
+        """
+        Load the model parameters from the specified path into the model.
+        
+        Args:
+        model (torch.nn.Module): The PyTorch model into which the parameters are loaded.
+        path (str): Path to the file from which the model parameters are loaded.
+        """
+        self.load_state_dict(torch.load(path, map_location=torch.device('cuda' if torch.cuda.is_available() else 'cpu')))
+        print(f'Model loaded from {path}')
+
 def get_eapp_model(path=None, device='cuda'):
-    return load_model(path).to(device)
-
-def save_model(model, path):
-    torch.save(model.state_dict(), path)
-
-def load_model(path):
     model = Eapp()
     if path is not None and os.path.exists(path):
-        model.load_state_dict(torch.load(path))
+        model.load_model(path)
+    else:
+        print('No model found at path. Creating new model.')
     return model
+
 
 # Example usage
 if __name__ == "__main__":

@@ -30,3 +30,23 @@ class WarpingGenerator(nn.Module):
         x = self.conv_out(x)
         x = self.tanh(x)
         return x
+
+    def save_model(self, path='./models/portrait/decoder/warping_module.pth'):
+        """
+        Save the model parameters to the specified path.
+        
+        Args:
+        model (torch.nn.Module): The PyTorch model to save.
+        path (str): Path to the file where the model parameters are saved.
+        """
+        torch.save(self.state_dict(), path)
+        print(f'Model saved to {path}')
+
+    def load_model(self, path='./models/portrait/decoder/warping_module.pth'):
+        """
+        Load the model parameters from the specified path into the model.
+        """
+        self.load_state_dict(torch.load(path))
+        print(f'Model loaded from {path}')
+
+        

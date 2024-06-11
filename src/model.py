@@ -1,4 +1,5 @@
 import random
+import os
 
 import tqdm
 
@@ -16,13 +17,12 @@ import torch.nn as nn
 import dlib
 
 class Portrait(nn.Module):
-    def __init__(self, eapp_path="./models/eapp_path", emo_path="./models/emo_path"):
+    def __init__(self, eapp_path="./models/eapp.pth", emo_path="./models/emodel.pth"):
         super(Portrait, self).__init__()
 
 
         arcface_model_path = "./models/arcface2/model_ir_se50.pth"
         face3d_model_path = "./models/face3drecon.pth"
-        hope_model_path = "./models/hopenet_robust_alpha1.pkl"
 
         self.detector = dlib.get_frontal_face_detector()
 
@@ -54,12 +54,12 @@ class Portrait(nn.Module):
         return video[frame_indices[0]].unsqueeze(0).to(device), video[frame_indices[1]].unsqueeze(0).to(device)
 
 
-    def train_model(self, train_loader, num_epochs=10, learning_rate=0.001):
+    def train_model(self, train_loader, num_epochs=10, learning_rate=0.001, start_epoch=0):
         optimizer = torch.optim.Adam(self.parameters(), lr=learning_rate)
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.to(device)
 
-        for epoch in range(num_epochs):
+        for epoch in range(start_epoch, num_epochs):
             running_loss = 0
             # Wrap the training loader with tqdm for a progress bar
             train_iterator = tqdm.tqdm(train_loader, desc=f"Epoch {epoch + 1}/{num_epochs}", total=len(train_loader))
@@ -116,7 +116,18 @@ class Portrait(nn.Module):
             return Y, (v_s, e_s, r_s, t_s, z_s), (v_d, e_d, r_d, t_d, z_d)
         return Y
 
+    def save_model(self, path="./models/portrait/"):
+        os.makedirs(path, exist_ok=True)
+        self.eapp.save_model(path + "eapp.pth")
+        self.emodel.save_model(path + "emodel.pth")
 
+        self.decoder.save_model(path + "decoder/")
+
+    def load_model(self, path="./models/portrait/"):
+        self.eapp.load_model(path + "eapp.pth")
+        self.emodel.load_model(path + "emodel.pth")
+
+        self.decoder.load_model(path + "decoder/")
 
 if __name__ == '__main__':
 
