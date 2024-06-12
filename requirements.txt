@@ -1,0 +1,10 @@
+decord==0.6.0
+dlib==19.24.4
+matplotlib==3.8.4
+numpy==1.26.4
+opencv_python==4.9.0.80
+Pillow==10.3.0
+scipy==1.13.1
+setuptools==59.6.0
+tqdm==4.66.2
+trimesh==4.3.2
