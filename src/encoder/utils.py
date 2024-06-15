@@ -62,24 +62,78 @@ class ResBlock2D(nn.Module):
         out = F.relu(out)
         return out
 
+class AdaptiveGroupNorm(nn.Module):
+    def __init__(self, num_channels, num_groups=32):
+        super(AdaptiveGroupNorm, self).__init__()
+        self.num_channels = num_channels
+        self.num_groups = num_groups
+        self.weight = nn.Parameter(torch.ones(1, num_channels, 1, 1, 1))
+        self.bias = nn.Parameter(torch.zeros(1, num_channels, 1, 1, 1))
+        
+        self.group_norm = nn.GroupNorm(num_groups, num_channels)
+
+    def forward(self, x):
+        normalized = self.group_norm(x)
+        return normalized * self.weight + self.bias
+
+
 class ResBlock3D(nn.Module):
-    def __init__(self, in_channels, out_channels):
+    def __init__(self, in_channels, out_channels, upsample=False, scale_factors=(1, 1, 1)):
         super(ResBlock3D, self).__init__()
+        self.upsample = upsample
+        self.scale_factors = scale_factors
         self.conv1 = nn.Conv3d(in_channels, out_channels, kernel_size=3, padding=1)
-        self.bn1 = nn.BatchNorm3d(out_channels)
-        self.relu = nn.ReLU(inplace=True)
+        self.gn1 = nn.GroupNorm(num_groups=32, num_channels=out_channels)
         self.conv2 = nn.Conv3d(out_channels, out_channels, kernel_size=3, padding=1)
-        self.bn2 = nn.BatchNorm3d(out_channels)
+        self.gn2 = nn.GroupNorm(num_groups=32, num_channels=out_channels)
+        
+        self.shortcut = nn.Conv3d(in_channels, out_channels, kernel_size=1) 
+        
+    def forward(self, x):
+        residual = self.shortcut(x)
+        
+        out = self.conv1(x)
+        out = self.gn1(out)
+        out = F.relu(out, inplace=True)
+        
+        out = self.conv2(out)
+        out = self.gn2(out)
+        
+        out += residual
+        out = F.relu(out, inplace=True)
+        
+        return out
+
+class ResBlock3D_Adaptive(nn.Module):
+    def __init__(self, in_channels, out_channels, upsample=False, scale_factors=(1, 1, 1)):
+        super(ResBlock3D_Adaptive, self).__init__()
+        self.upsample = upsample
+        self.scale_factors = scale_factors
+        self.conv1 = nn.Conv3d(in_channels, out_channels, 3, padding=1)
+        self.conv2 = nn.Conv3d(out_channels, out_channels, 3, padding=1)
+        self.norm1 = AdaptiveGroupNorm(out_channels)
+        self.norm2 = AdaptiveGroupNorm(out_channels)
+        
+        if in_channels != out_channels:
+            self.residual_conv = nn.Conv3d(in_channels, out_channels, 1)
+        else:
+            self.residual_conv = nn.Identity()
         
     def forward(self, x):
         residual = x
         out = self.conv1(x)
-        out = self.bn1(out)
-        out = self.relu(out)
+        out = self.norm1(out)
+        out = F.relu(out)
         out = self.conv2(out)
-        out = self.bn2(out)
+        out = self.norm2(out)
+        residual = self.residual_conv(residual)
+        
         out += residual
-        out = self.relu(out)
+        out = F.relu(out)
+
+        if self.upsample:
+            out = F.interpolate(out, scale_factor=self.scale_factors, mode='trilinear', align_corners=False)
+        
         return out
 
 # class ResBlock3D(nn.Module):

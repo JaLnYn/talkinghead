@@ -65,7 +65,6 @@ class Portrait(nn.Module):
             train_iterator = tqdm.tqdm(train_loader, desc=f"Epoch {epoch + 1}/{num_epochs}", total=len(train_loader))
             for Xs, Xd, Xsp, Xdp in train_iterator:
                 Xs, Xd, Xsp, Xdp = Xs.to(device), Xd.to(device), Xsp.to(device), Xdp.to(device)
-                
                 optimizer.zero_grad()
 
                 gsd, (v_s, e_s, r_s, t_s, z_s), (v_d, e_d, r_d, t_d, z_d)  = self(Xs, Xd, return_components=True)

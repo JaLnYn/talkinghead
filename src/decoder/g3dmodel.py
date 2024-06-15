@@ -8,20 +8,18 @@ class G3D(nn.Module):
     def __init__(self):
         super(G3D, self).__init__()
         self.resblock1 = ResBlock3D(96, 96)
-        self.downsample1 = nn.Conv3d(96, 196, kernel_size=3, stride=(1, 2, 2), padding=1)
-        self.resblock2 = ResBlock3D(196, 196)
-        self.downsample2 = nn.Conv3d(196, 384, kernel_size=3, stride=(2, 2, 2), padding=1)
-        self.resblock3 = ResBlock3D(384, 384)
-        self.resblock4 = nn.Conv3d(384, 512, kernel_size=3, stride=(2, 2, 2), padding=1)
-        self.resblock5 = ResBlock3D(512, 512)
+        self.downsample1 = nn.AvgPool3d(kernel_size=2, stride=2)
+        self.resblock2 = ResBlock3D(96, 192)
+        self.downsample2 = nn.AvgPool3d(kernel_size=2, stride=2)
+        self.resblock3 = ResBlock3D(192, 384)
+        self.resblock4 = nn.AvgPool3d(kernel_size=2, stride=2)
+        self.resblock5 = ResBlock3D(384, 768)
         self.upsample1 = nn.Upsample(scale_factor=(2, 2, 2), mode='trilinear', align_corners=False)
-        self.resblock6 = nn.Conv3d(512 + 384, 384, kernel_size=3, padding=1)  # Concatenate with output from resblock3
-        self.resblock65 = ResBlock3D(384, 384)
-        self.upsample2 = nn.Upsample(scale_factor=(2, 2, 2), mode='trilinear', align_corners=False)
-        self.resblock7 = nn.Conv3d(384 + 196, 196, kernel_size=3, padding=1)  # Concatenate with output from resblock2
-        self.resblock75 = ResBlock3D(196, 196)
-        self.upsample3 = nn.Upsample(scale_factor=(1, 2, 2), mode='trilinear', align_corners=False)
-        self.resblock8 = nn.Conv3d(196 + 96, 96, kernel_size=3, padding=1)  # Concatenate with output from resblock1
+        self.resblock6 = ResBlock3D(768+384, 384)  # Concatenate with output from resblock3
+        self.upsample2 = nn.Upsample(scale_factor=2, mode='trilinear', align_corners=True)
+        self.resblock7 = ResBlock3D(384+192, 192)  # Concatenate with output from resblock2
+        self.upsample3 = nn.Upsample(scale_factor=2, mode='trilinear', align_corners=True)
+        self.resblock8 = ResBlock3D(192+96, 96)  # Concatenate with output from resblock1
         self.conv_out = ResBlock3D(96, 96)
         self.to("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -36,11 +34,9 @@ class G3D(nn.Module):
         x = self.upsample1(x)
         x = torch.cat([x, x3], dim=1)  # Concatenate along the channel dimension
         x = self.resblock6(x)
-        x = self.resblock65(x)
         x = self.upsample2(x)
         x = torch.cat([x, x2], dim=1)  # Concatenate along the channel dimension
         x = self.resblock7(x)
-        x = self.resblock75(x)
         x = self.upsample3(x)
         x = torch.cat([x, x1], dim=1)  # Concatenate along the channel dimension
         x = self.resblock8(x)
