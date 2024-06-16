@@ -1,5 +1,6 @@
 import random
 import os
+import wandb
 
 import tqdm
 
@@ -60,6 +61,7 @@ class Portrait(nn.Module):
         optimizer = torch.optim.Adam(self.parameters(), lr=learning_rate)
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.to(device)
+        wandb.init(project='portrait_project', entity='jalnyn')
 
         for epoch in range(start_epoch, num_epochs):
             running_loss = 0
@@ -112,6 +114,19 @@ class Portrait(nn.Module):
                 total_loss.backward()
                 optimizer.step()
 
+                wandb.log({
+                    'Total Loss': total_loss.item(),
+                    'Gaze Loss': Lper[1]['Lgaze'],
+                    'ImageNet Loss': Lper[1]['Lin'],
+                    'Face Loss': Lper[1]['Lface'],
+                    'GAN Loss': Lgan.item(),
+                    'Cycle Loss': Lcyc.item(),
+                    'ArcFace Loss': Lvasa[1]['arcloss'],
+                    'Face3D Loss': Lvasa[1]['rotationloss'],
+                    'EModel Loss': Lvasa[1]['cosloss'],
+                    'Second Gaze Loss': Lvasa[1]['gazeloss']
+                })
+
                 train_iterator.set_description(
                     f"Epoch {epoch + 1}/{num_epochs}, Total Loss: {total_loss.item():.4f}, "
                     f"Face: {running_face_loss:.4f}, INet: {running_image_net_loss:.4f}, "
@@ -121,55 +136,8 @@ class Portrait(nn.Module):
                     f"Face3D: {running_face3d_loss:.4f}"
                 )
             
-            self.save_model(path="./models/portrait/epoch{}.pth".format(epoch))
+            self.save_model(path="./models/portrait/epoch{}/".format(epoch))
             print(f'Epoch {epoch+1}, Average Loss {running_loss / len(train_loader):.4f}')
-
-
-
-
-
-    # def train_model(self, train_loader, num_epochs=10, learning_rate=0.001, start_epoch=0):
-    #     optimizer = torch.optim.Adam(self.parameters(), lr=learning_rate)
-    #     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    #     self.to(device)
-
-    #     for epoch in range(start_epoch, num_epochs):
-    #         running_loss = 0
-    #         running_perceptual_loss = 0
-    #         running_gan_loss = 0
-    #         running_cycle_loss = 0
-    #         train_iterator = tqdm.tqdm(train_loader, desc=f"Epoch {epoch + 1}/{num_epochs}", total=len(train_loader))
-    #         
-    #         for Xs, Xd, Xsp, Xdp in train_iterator:
-    #             Xs, Xd, Xsp, Xdp = Xs.to(device), Xd.to(device), Xsp.to(device), Xdp.to(device)
-    #             optimizer.zero_grad()
-
-    #             # Model forward pass
-    #             gsd, gspd, other_outputs = self(Xs, Xd, Xsp, Xdp)  # Simplified, implement this
-
-    #             # Calculate loss components
-    #             perceptual_loss = self.perceptual_loss.compute(Xs, Xd, Xsp, Xdp, gsd, gspd)
-    #             gan_loss = self.gan_loss.compute(gsd, gspd)
-    #             cycle_loss = self.cycle_loss.compute(Xd, Xsp, gsd, gspd)
-
-    #             # Total loss calculation
-    #             total_loss = self.perceptual_weight * perceptual_loss + self.gan_weight * gan_loss + self.cycle_weight * cycle_loss
-    #             total_loss.backward()
-    #             optimizer.step()
-
-    #             # Update running totals
-    #             running_loss += total_loss.item()
-    #             running_perceptual_loss += perceptual_loss.item()
-    #             running_gan_loss += gan_loss.item()
-    #             running_cycle_loss += cycle_loss.item()
-
-    #             # Update progress bar
-    #             train_iterator.set_description(f"Epoch {epoch + 1}/{num_epochs}, Loss: {total_loss.item():.4f}, Perceptual: {perceptual_loss.item():.4f}, GAN: {gan_loss.item():.4f}, Cycle: {cycle_loss.item():.4f}")
-    #         
-    #         print(f'Epoch {epoch+1}, Average Loss: {running_loss / len(train_loader):.4f}, Avg Perceptual Loss: {running_perceptual_loss / len(train_loader):.4f}, Avg GAN Loss: {running_gan_loss / len(train_loader):.4f}, Avg Cycle Loss: {running_cycle_loss / len(train_loader):.4f}')
-    #         self.save_model(path=f"./models/portrait/epoch{epoch}.pth")
-
-
 
 
     def forward(self, Xs, Xd, return_components=False):
@@ -199,6 +167,7 @@ class Portrait(nn.Module):
         return Y
 
     def save_model(self, path="./models/portrait/"):
+        print(f'Saving model to {path}')
         os.makedirs(path, exist_ok=True)
         torch.save(self.state_dict(), path + "portrait.pth")
         
