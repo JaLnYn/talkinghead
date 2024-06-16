@@ -25,7 +25,7 @@ class VideoDataset(Dataset):
         video_path = self.video_files[idx]
         vr = VideoReader(video_path, ctx=cpu(0))
         total_frames = len(vr)
-        frame_indices = sorted(random.sample(range(total_frames), self.frames_per_clip))
+        frame_indices = random.sample(range(total_frames), self.frames_per_clip)
         video_data = vr.get_batch(frame_indices).asnumpy()
         video_tensor = torch.from_numpy(video_data).float().to('cuda')
         

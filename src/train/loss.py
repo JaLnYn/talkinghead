@@ -5,35 +5,79 @@ from torchvision.models import resnet18
 from src.train.discriminator import MultiScalePatchDiscriminator
 
 class PerceptualLoss(nn.Module):
-    def __init__(self, arcface_model, gaze_model):
+    def __init__(self, arcface_model, gaze_model, arcface_weight=1.0, imagenet_weight=0.1,  gaze_weight=1.0):
         super(PerceptualLoss, self).__init__()
+        self.arcface_weight = arcface_weight
+        self.imagenet_weight = imagenet_weight
+        self.gaze_weight = gaze_weight
         self.arcface = arcface_model
         self.imageNet = resnet18(weights='IMAGENET1K_V1')
         self.gaze_model = gaze_model
 
     def forward(self, pred, source, driver):
+        batch_size = pred.size(0)
+
+        # ArcFace loss
         pred_features = self.arcface(pred)
         target_features = self.arcface(source)
-
         Lface = F.cosine_embedding_loss(pred_features, target_features, torch.ones(pred_features.size(0)).to(pred_features.device))
+        Lface_scaled = Lface * self.arcface_weight/batch_size
 
-        pred_in = self.imageNet(pred) # image net
+        # ImageNet ResNet-18 loss
+        pred_in = self.imageNet(pred)
         target_in = self.imageNet(source)
-        Lin = torch.norm(pred_in - target_in, dim=1)
+        Lin = torch.norm(pred_in - target_in, dim=1).mean()  # Normalize over batch
+        Lin_scaled = Lin * self.imagenet_weight
 
-        # ADD GAZE LOSS
-        # TODO gaze discrepancy here
-        
+        # Gaze loss
         gaze_pred_1 = self.gaze_model.get_gaze(pred)
         gaze_pred_2 = self.gaze_model.get_gaze(driver)
-        Lgaze = torch.norm(gaze_pred_1 - gaze_pred_2, dim=1)
-        return Lface + Lin + Lgaze
+        Lgaze = torch.norm(gaze_pred_1 - gaze_pred_2, dim=1).mean()  # Normalize over batch
+        Lgaze_scaled = Lgaze * self.gaze_weight
 
+        # Calculate total weighted perceptual loss
+        total_loss = Lface_scaled + Lin_scaled + Lgaze_scaled
+
+        # Return individual losses along with the total
+        return total_loss, {
+            'Lface': Lface_scaled,
+            'Lin': Lin_scaled,
+            'Lgaze': Lgaze_scaled
+        }
+
+# class PerceptualLoss(nn.Module):
+#     def __init__(self, weight, arcface_model, gaze_model):
+#         super(PerceptualLoss, self).__init__()
+#         self.weight = weight
+#         self.arcface = arcface_model
+#         self.imageNet = resnet18(weights='IMAGENET1K_V1')
+#         self.gaze_model = gaze_model
+# 
+#     def forward(self, pred, source, driver):
+#         batch_size = pred.size(0)
+#         pred_features = self.arcface(pred)
+#         target_features = self.arcface(source)
+# 
+#         Lface = F.cosine_embedding_loss(pred_features, target_features, torch.ones(pred_features.size(0)).to(pred_features.device))
+# 
+#         pred_in = self.imageNet(pred) # image net
+#         target_in = self.imageNet(source)
+#         Lin = torch.norm(pred_in - target_in, dim=1)
+# 
+#         # ADD GAZE LOSS
+#         # TODO gaze discrepancy here
+#         
+#         gaze_pred_1 = self.gaze_model.get_gaze(pred)
+#         gaze_pred_2 = self.gaze_model.get_gaze(driver)
+#         Lgaze = torch.norm(gaze_pred_1 - gaze_pred_2, dim=1)
+#         assert Lgaze.size(0) == batch_size
+#         return sum(Lface + Lin + Lgaze)/batch_size * self.weight
 
 class GANLoss(nn.Module):
-    def __init__(self):
+    def __init__(self, weight=1.0):
         super(GANLoss, self).__init__()
         self.discriminator = MultiScalePatchDiscriminator(input_channels=3)
+        self.weight = weight
 
     def forward(self, real, fake):
         # Get discriminator outputs and features for both real and fake images
@@ -58,16 +102,18 @@ class GANLoss(nn.Module):
 
         # Normalize losses by number of scales and sum real and fake hinge losses
         total_loss = (real_loss + fake_loss) / len(real_outputs) + feature_matching_loss / sum(len(feats) for feats in real_features)
-        return total_loss
-
+        return total_loss * self.weight
+    
 class CycleConsistencyLoss(nn.Module):
-    def __init__(self, emodel, scale=5.0, margin=0.2):
+    def __init__(self,  emodel, weight=1.0, scale=5.0, margin=0.2):
         super(CycleConsistencyLoss, self).__init__()
+        self.weight = weight
         self.emodel = emodel
         self.scale = scale
         self.margin = margin
 
     def forward(self, Xd, Xd_prime, gsd, gspd):
+        batch_size = Xd.size(0)
         zd = self.emodel(Xd)
         zdp = self.emodel(Xd_prime)
         zsd = self.emodel(gsd)
@@ -88,18 +134,25 @@ class CycleConsistencyLoss(nn.Module):
 
         loss = - torch.log( cosine_distance(zsd, zd) / (cosine_distance(zsd, zd) + neg_distances + 1e-6))
         loss = loss - torch.log( cosine_distance(zspd, zd) / (cosine_distance(zspd, zd) + neg_distances + 1e-6))
+        assert loss.size(0) == batch_size
+        return sum(loss)*self.weight/batch_size
 
-        return loss
+
 
 class VasaLoss(nn.Module):
-    def __init__(self, face3d, arcface, emodel, gaze_model):
+    def __init__(self, face3d, arcface, emodel, gaze_model, gaze_weight=1.0, arcface_weight=1.0, emodel_weight=1.0, face3d_weight=1.0):
         super(VasaLoss, self).__init__()
         self.face3d = face3d
         self.arcface = arcface
         self.emodel = emodel
         self.gaze_model = gaze_model
+        self.gaze_weight = gaze_weight
+        self.arcface_weight = arcface_weight
+        self.emodel_weight = emodel_weight
+        self.face3d_weight = face3d_weight
 
     def forward(self, giiij, gjjij, gsd, gsmod):
+        batch_size = giiij.size(0)
         # Compute perceptual loss
         zi = self.emodel(giiij)
         zj = self.emodel(gjjij)
@@ -116,19 +169,21 @@ class VasaLoss(nn.Module):
             r_d = coef_dict_d['angle']
             t_d = coef_dict_d['trans']
 
-        loss = F.cosine_embedding_loss(zi, zj, torch.ones(zi.size(0)).to(zi.device))
-        loss = loss + torch.norm(r_s - r_d, dim=1) + torch.norm(t_s - t_d, dim=1)
-        # TODO gaze discrepancy here
+        cosloss = F.cosine_embedding_loss(zi, zj, torch.ones(zi.size(0)).to(zi.device))/batch_size * self.emodel_weight
+        assert zi.size(0) == batch_size
+        rotation_loss = sum(torch.norm(r_s - r_d, dim=1) + torch.norm(t_s - t_d, dim=1))/batch_size * self.face3d_weight
+        assert r_s.size(0) == batch_size
 
         gaze_pred_1 = self.gaze_model.get_gaze(giiij)
         gaze_pred_2 = self.gaze_model.get_gaze(gjjij)
-        loss = loss + torch.norm(gaze_pred_1 - gaze_pred_2, dim=1)
+        assert gaze_pred_1.size(0) == batch_size
+        gaze_loss = sum(torch.norm(gaze_pred_1 - gaze_pred_2, dim=1))/batch_size * self.gaze_weight
 
         esd = self.arcface(gsd)
         emod = self.arcface(gsmod)
 
-        loss = loss + F.cosine_embedding_loss(esd, emod, torch.ones(esd.size(0)).to(esd.device))
-        return loss
+        arcloss = F.cosine_embedding_loss(esd, emod, torch.ones(esd.size(0)).to(esd.device))
+        return (arcloss + gaze_loss + rotation_loss + cosloss, {"arcloss": arcloss, "gazeloss": gaze_loss, "rotationloss": rotation_loss, "cosloss": cosloss})
 
 
 class PortraitLoss(nn.Module):
@@ -144,6 +199,7 @@ class PortraitLoss(nn.Module):
         self.cycle_weight = cycle_weight
 
     def forward(self, Xs, Xd, Xsp, Xdp, gsd, gspd): #(self, Xs, Xd, Xsp, Xdp, gsd, gsdp, gspd, gspdp):
+        batch_size = Xs.size(0)
         # Compute perceptual loss
         Lper = self.perceptual_loss(Xs, Xd, gsd)
         # Lper = Lper + self.perceptual_loss(Xs, Xdp, gsdp)
@@ -157,4 +213,4 @@ class PortraitLoss(nn.Module):
 
         Lcyc = self.cycle_loss(Xd, Xdp, gsd, gspd)
 
-        return sum(self.perceptual_weight * Lper + self.gan_weight * Lgan + self.cycle_weight * Lcyc)
+        return sum(self.perceptual_weight * Lper + self.cycle_weight * Lcyc)/batch_size + self.gan_weight * Lgan 

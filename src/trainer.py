@@ -63,7 +63,7 @@ def load_data(root_dir, batch_size=8, transform=None):
     Returns:
     DataLoader: A DataLoader object ready for iteration.
     """
-    dataset = VideoDataset(root_dir=root_dir, transform=transform, frames_per_clip=16)  # Example frames_per_clip
+    dataset = VideoDataset(root_dir=root_dir, transform=transform, frames_per_clip=2)
     dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True, collate_fn=collate_frames)
     return dataloader
 
