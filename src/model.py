@@ -61,7 +61,7 @@ class Portrait(nn.Module):
         optimizer = torch.optim.Adam(self.parameters(), lr=learning_rate)
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.to(device)
-        wandb.init(project='portrait_project', entity='jalnyn')
+        wandb.init(project='portrait_project')
 
         for epoch in range(start_epoch, num_epochs):
             running_loss = 0
