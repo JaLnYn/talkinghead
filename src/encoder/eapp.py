@@ -80,10 +80,10 @@ class Eapp(nn.Module):
 
 def get_eapp_model(path=None, device='cuda'):
     model = Eapp()
-    if path is not None and os.path.exists(path):
-        model.load_model(path)
-    else:
-        print('No model found at path. Creating new model.')
+    # if path is not None and os.path.exists(path):
+    #     model.load_model(path)
+    # else:
+    #     print('No model found at path. Creating new model.')
     return model
 
 

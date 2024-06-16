@@ -72,11 +72,11 @@ class FaceDecoder(nn.Module):
         os.makedirs(path, exist_ok=True)
         self.g3d.save_model(path + "g3d.pth")
         self.g2d.save_model(path + "g2d.pth")
-        # self.warping_module_d.save_model(path + "warping_module_d.pth")
-        # self.warping_module_s.save_model(path + "warping_module_s.pth")
+        self.warping_module_d.save_model(path + "warping_module_d.pth")
+        self.warping_module_s.save_model(path + "warping_module_s.pth")
     
     def load_model(self, path='./models/portrait/decoder/'):
         self.g3d.load_model(path + "g3d.pth")
         self.g2d.load_model(path + "g2d.pth")
-        # self.warping_module_d.load_model(path + "warping_module_d.pth")
-        # self.warping_module_s.load_model(path + "warping_module_s.pth")
+        self.warping_module_d.load_model(path + "warping_module_d.pth")
+        self.warping_module_s.load_model(path + "warping_module_s.pth")

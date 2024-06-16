@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from src.encoder.utils import ResBlock3D, ResBlock3D_Adaptive
+import os
 
 
 class FlowField(nn.Module):
@@ -24,9 +25,11 @@ class FlowField(nn.Module):
         self.conv3x3x3 = nn.Conv3d(32, 3, kernel_size=3, padding=1).to(device)
         self.gn = nn.GroupNorm(1, 3).to(device)
         self.tanh = nn.Tanh().to(device)
+        self.lin = nn.Linear(512, 512).to(device)
     
 #    @profile
     def forward(self, zs): # 
+        zs = self.lin(zs) # this is the adaptive matrix
         zs.unsqueeze_(-1).unsqueeze_(-1)    
         x = self.conv1x1(zs)
         x = self.reshape_layer(x)
@@ -130,15 +133,9 @@ class WarpingGenerator(nn.Module):
         super(WarpingGenerator, self).__init__()
         self.flowfield = FlowField()
         self.num_channels = num_channels ### TODO 3
-        
-        device = "cuda" if torch.cuda.is_available() else "cpu"
-
-        self.lin = nn.Linear(512, 512).to(device)
 
 #    @profile
     def forward(self, zd_sum, Rd, td):
-        zd_sum = self.lin(zd_sum)
-        # zd_sum = zd_sum.unsqueeze(-1).unsqueeze(-1) ### TODO 3 add unsqueeze(-1).unsqueeze(-1) to match the shape of w_em_c2d
 
         w_em_c2d = self.flowfield(zd_sum)
 
@@ -151,3 +148,25 @@ class WarpingGenerator(nn.Module):
         w_c2d = w_rt_c2d + w_em_c2d_resized
 
         return w_c2d
+    
+    def save_model(self, path='./models/portrait/decoder/'):
+        """
+        Save the model parameters to the specified path.
+        
+        Args:
+        model (torch.nn.Module): The PyTorch model to save.
+        """
+        if not os.path.exists(path):
+            os.makedirs(path)
+        print(f"Saving model to {path}")
+        torch.save(self.state_dict(), path)
+    
+    def load_model(self, path='./models/portrait/decoder/'):
+        """
+        Load the model parameters from the specified path into the model.
+        
+        Args:
+        model (torch.nn.Module): The PyTorch model into which the parameters are loaded.
+        """
+        print(f"Loading model from {path}")
+        self.load_state_dict(torch.load(path))
