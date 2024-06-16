@@ -10,65 +10,60 @@ from src.model import Portrait
 import random
 
 
+def collate_frames(batch):
+    """
+    Custom collate function that processes a batch of tensors, each containing sampled frames from videos.
 
-# def select_random_frames(dataloader, batch_size, device):
-#     video_dataset = dataloader.dataset
-#     batch_Xs, batch_Xd, batch_Xs_prime, batch_Xd_prime = [], [], [], []
-#     
-#     for _ in range(batch_size):
-#         idx1, idx2 = random.sample(range(len(video_dataset)), 2)
-#         video1 = video_dataset[idx1]
-#         video2 = video_dataset[idx2]
-#         
-#         video1_idx1, video1_idx2 = random.sample(range(len(video1)), 2)
-#         video2_idx1, video2_idx2 = random.sample(range(len(video2)), 2)
-#         
-#         Xs = video1[video1_idx1]
-#         Xd = video1[video1_idx2]
-#         Xs_prime = video2[video2_idx1]
-#         Xd_prime = video2[video2_idx2]
-# 
-#         exit()
-#         
-#         batch_Xs.append(Xs)
-#         batch_Xd.append(Xd)
-#         batch_Xs_prime.append(Xs_prime)
-#         batch_Xd_prime.append(Xd_prime)
-#     
-#     return torch.cat(batch_Xs), torch.cat(batch_Xd), torch.cat(batch_Xs_prime), torch.cat(batch_Xd_prime)
+    Args:
+    batch (list of Tensors): The batch containing video frame tensors.
 
-# Main function to execute the pipeline
+    Returns:
+    tuple: A tuple containing processed tensors ready for model input.
+    """
+    # Randomly select two frames from each half of the batch for processing
+    Xs_stack = []
+    Xd_stack = []
+    Xs_prime_stack = []
+    Xd_prime_stack = []
 
-# Load and preprocess the data
-def load_data(root_dir, batch_size=8):
-    dataset = VideoDataset(root_dir=root_dir, transform=transform)
+    half_point = len(batch) // 2
+    for item in batch[:half_point]:
+        if item.shape[0] > 1:  # Ensure there is more than one frame
+            indices = random.sample(range(item.shape[0]), 2)
+            Xs_stack.append(item[indices[0]])
+            Xd_stack.append(item[indices[1]])
 
-    def collate_frames(batch):
-        # Assume batch is a list of frames; shuffle to randomize frame selection across videos
-        random.shuffle(batch) 
+    for item in batch[half_point:]:
+        if item.shape[0] > 1:
+            indices = random.sample(range(item.shape[0]), 2)
+            Xs_prime_stack.append(item[indices[0]])
+            Xd_prime_stack.append(item[indices[1]])
 
-        # Assuming each batch now contains enough frames for two pairs
-        half_point = len(batch) // 2
-
-        Xs_stack = []
-        Xd_stack = []
-        for item in batch[:half_point]:
-            Xs_stack.append(random.choice(item))
-            Xd_stack.append(random.choice(item))
-        Xs = torch.stack(Xs_stack)  
-        Xd = torch.stack(Xd_stack)  
-
-        
-        Xs_prime_stack = []
-        Xd_prime_stack = []
-        for item in batch[half_point:]:
-            Xs_prime_stack.append(random.choice(item))
-            Xd_prime_stack.append(random.choice(item))
-        Xs_prime = torch.stack(Xs_prime_stack)  
-        Xd_prime = torch.stack(Xd_prime_stack)  
-
+    # Stack all selected frames to create batches
+    if Xs_stack and Xd_stack and Xs_prime_stack and Xd_prime_stack:  # Check if lists are not empty
+        Xs = torch.stack(Xs_stack)
+        Xd = torch.stack(Xd_stack)
+        Xs_prime = torch.stack(Xs_prime_stack)
+        Xd_prime = torch.stack(Xd_prime_stack)
         return Xs, Xd, Xs_prime, Xd_prime
+    else:
+        # Return zero tensors if not enough frames were available
+        zero_tensor = torch.zeros((1, 3, 224, 224))  # Adjust dimensions as per your model's requirement
+        return zero_tensor, zero_tensor, zero_tensor, zero_tensor
 
+def load_data(root_dir, batch_size=8, transform=None):
+    """
+    Function to load data using VideoDataset and DataLoader with a custom collate function.
+    
+    Args:
+    root_dir (str): Path to the directory containing videos.
+    batch_size (int): Number of samples per batch.
+    transform (callable, optional): Transformations applied to video frames.
+
+    Returns:
+    DataLoader: A DataLoader object ready for iteration.
+    """
+    dataset = VideoDataset(root_dir=root_dir, transform=transform, frames_per_clip=16)  # Example frames_per_clip
     dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True, collate_fn=collate_frames)
     return dataloader
 
@@ -84,8 +79,8 @@ def main():
     
     args = parser.parse_args()
 
-    video_dataset = load_data(root_dir='./dataset/mp4', batch_size=args.batch_size)
-    print(args.eapp_path, args.emopath)
+    
+    video_dataset = load_data(root_dir='./dataset/mp4', transform=transform, batch_size=args.batch_size)
     p = Portrait(args.eapp_path, args.emopath)
     p.save_model(args.model_dir)
     p.load_model(args.model_dir)

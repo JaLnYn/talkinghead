@@ -84,6 +84,8 @@ class Portrait(nn.Module):
 
                 running_loss += loss.item()
                 train_iterator.set_description(f"Epoch {epoch + 1}/{num_epochs}, Loss {loss.item():.4f}")
+            
+            self.save_model(path="./models/portrait/epoch{}.pth".format(epoch))
             print(f'Epoch {epoch+1}, Average Loss {running_loss / len(train_loader):.4f}')
 
 
