@@ -76,15 +76,15 @@ def main():
     parser.add_argument('--data_path', type=str, default='./dataset/mp4', help='Path to the dataset. The folder should be folder of mp4s.')
     parser.add_argument('--batch_size', type=int, default=16, help='batches')
     parser.add_argument('--model_dir', type=str, default='./models/portrait/', help='Path to the model directory. The folder should be folder of pths')
-    
+    parser.add_argument('--checkpoint_path', type=str, default=None, help='Path to the training checkpoint to resume from.')
+    args = parser.parse_args()
     args = parser.parse_args()
 
     
     video_dataset = load_data(root_dir='./dataset/mp4', transform=transform, batch_size=args.batch_size)
     p = Portrait(args.eapp_path, args.emopath)
-    p.save_model(args.model_dir)
-    p.load_model(args.model_dir)
-    p.train_model(video_dataset)
+
+    p.train_model(video_dataset, checkpoint_path=args.checkpoint_path)
 
 
 if __name__ == '__main__':

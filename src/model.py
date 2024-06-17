@@ -56,12 +56,17 @@ class Portrait(nn.Module):
         self.gan_weight = 1.0
         self.cycle_weight = 2.0
 
-
-    def train_model(self, train_loader, num_epochs=10, learning_rate=0.001, start_epoch=0):
+    def train_model(self, train_loader, num_epochs=10, learning_rate=0.001, start_epoch=0, checkpoint_path=None):
         optimizer = torch.optim.Adam(self.parameters(), lr=learning_rate)
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.to(device)
-        wandb.init(project='portrait_project')
+        wandb.init(project='portrait_project', resume="allow")
+        
+        if checkpoint_path:
+            checkpoint = torch.load(checkpoint_path)
+            self.load_state_dict(checkpoint['model_state_dict'])
+            optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+            start_epoch = checkpoint['epoch'] + 1  # Start from next epoch
 
         for epoch in range(start_epoch, num_epochs):
             running_loss = 0
@@ -148,7 +153,8 @@ class Portrait(nn.Module):
                     f"Face3D: {running_face3d_loss:.4f}"
                 )
             
-            self.save_model(path="./models/portrait/epoch{}/".format(epoch))
+            # self.save_model(path="./models/portrait/epoch{}/".format(epoch))
+            self.save_model(path="./models/portrait/epoch{}/".format(epoch), epoch=epoch, optimizer=optimizer)
             print(f'Epoch {epoch+1}, Average Loss {running_loss / len(train_loader):.4f}')
 
 
@@ -178,10 +184,14 @@ class Portrait(nn.Module):
             return Y, (v_s, e_s, r_s, t_s, z_s), (v_d, e_d, r_d, t_d, z_d)
         return Y
 
-    def save_model(self, path="./models/portrait/"):
-        print(f'Saving model to {path}')
-        os.makedirs(path, exist_ok=True)
+    def save_model(self, path, epoch, optimizer):
+        model_state = {
+            'epoch': epoch,
+            'model_state_dict': self.state_dict(),
+            'optimizer_state_dict': optimizer.state_dict()
+        }
         torch.save(self.state_dict(), path + "portrait.pth")
+        torch.save(model_state, os.path.join(path, "checkpoint.pth"))
         
 
     def load_model(self, path="./models/portrait/"):
