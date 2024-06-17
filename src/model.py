@@ -79,6 +79,7 @@ class Portrait(nn.Module):
             train_iterator = tqdm.tqdm(train_loader, desc=f"Epoch {epoch + 1}/{num_epochs}", total=len(train_loader))
             for Xs, Xd, Xsp, Xdp in train_iterator:
                 min_batch_size = min(Xs.size(0), Xd.size(0), Xsp.size(0), Xdp.size(0))
+                print(Xs.size(0), Xd.size(0), Xsp.size(0), Xdp.size(0))
 
                 # Check if the minimum batch size is zero
                 if min_batch_size == 0:
@@ -104,7 +105,7 @@ class Portrait(nn.Module):
 
                 Lper = self.perceptual_loss(Xs, Xd, gsd) + self.perceptual_loss(Xsp, Xd, gspd)
                 Lgan = self.gan_loss(Xs, gsd) + self.gan_loss(Xsp, gspd)
-                Lcyc = self.cycle_loss(Xd, Xsp, gsd, gspd)
+                Lcyc = self.cycle_loss(Xd, Xdp, gsd, gspd)
 
                 Lvasa = self.v1loss(giiij, gjjij, gsd, gsmod)
 
