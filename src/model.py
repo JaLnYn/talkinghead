@@ -78,7 +78,18 @@ class Portrait(nn.Module):
             # Wrap the training loader with tqdm for a progress bar
             train_iterator = tqdm.tqdm(train_loader, desc=f"Epoch {epoch + 1}/{num_epochs}", total=len(train_loader))
             for Xs, Xd, Xsp, Xdp in train_iterator:
-                Xs, Xd, Xsp, Xdp = Xs.to(device), Xd.to(device), Xsp.to(device), Xdp.to(device)
+                min_batch_size = min(Xs.size(0), Xd.size(0), Xsp.size(0), Xdp.size(0))
+
+                # Check if the minimum batch size is zero
+                if min_batch_size == 0:
+                    continue  # Skip this iteration
+
+                # Crop batches to the minimum batch size
+                Xs = Xs[:min_batch_size].to(device)
+                Xd = Xd[:min_batch_size].to(device)
+                Xsp = Xsp[:min_batch_size].to(device)
+                Xdp = Xdp[:min_batch_size].to(device)
+
                 optimizer.zero_grad()
 
                 gsd, (v_s, e_s, r_s, t_s, z_s), (v_d, e_d, r_d, t_d, z_d)  = self(Xs, Xd, return_components=True)
