@@ -185,6 +185,8 @@ class Portrait(nn.Module):
         return Y
 
     def save_model(self, path, epoch, optimizer):
+        if not os.path.exists(path):
+            os.makedirs(path)
         model_state = {
             'epoch': epoch,
             'model_state_dict': self.state_dict(),
