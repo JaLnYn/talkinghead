@@ -15,7 +15,7 @@
 source ./venv/bin/activate
 
 # Execute the Python script with additional arguments
-python src/trainer.py --batch_size 8
+python src/trainer.py --batch_size 8 --checkpoint_path=./models/portrait/epoch3/checkpoint.pth
 
 # Deactivate the virtual environment
 deactivate

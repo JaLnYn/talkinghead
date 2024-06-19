@@ -5,7 +5,7 @@ from torchvision.models import resnet18
 from src.train.discriminator import MultiScalePatchDiscriminator
 
 class PerceptualLoss(nn.Module):
-    def __init__(self, arcface_model, gaze_model, arcface_weight=1.0, imagenet_weight=0.1,  gaze_weight=1.0):
+    def __init__(self, arcface_model, gaze_model, arcface_weight=0.1, imagenet_weight=0.01,  gaze_weight=0.1):
         super(PerceptualLoss, self).__init__()
         self.arcface_weight = arcface_weight
         self.imagenet_weight = imagenet_weight
@@ -74,7 +74,7 @@ class PerceptualLoss(nn.Module):
 #         return sum(Lface + Lin + Lgaze)/batch_size * self.weight
 
 class GANLoss(nn.Module):
-    def __init__(self, weight=1.0):
+    def __init__(self, weight=10.0):
         super(GANLoss, self).__init__()
         self.discriminator = MultiScalePatchDiscriminator(input_channels=3)
         self.weight = weight
@@ -105,7 +105,7 @@ class GANLoss(nn.Module):
         return total_loss * self.weight
     
 class CycleConsistencyLoss(nn.Module):
-    def __init__(self,  emodel, weight=1.0, scale=5.0, margin=0.2):
+    def __init__(self,  emodel, weight=0.1, scale=5.0, margin=0.2):
         super(CycleConsistencyLoss, self).__init__()
         self.weight = weight
         self.emodel = emodel
@@ -140,7 +140,7 @@ class CycleConsistencyLoss(nn.Module):
 
 
 class VasaLoss(nn.Module):
-    def __init__(self, face3d, arcface, emodel, gaze_model, gaze_weight=1.0, arcface_weight=1.0, emodel_weight=1.0, face3d_weight=1.0):
+    def __init__(self, face3d, arcface, emodel, gaze_model, gaze_weight=0.1, arcface_weight=0.1, emodel_weight=0.1, face3d_weight=0.1):
         super(VasaLoss, self).__init__()
         self.face3d = face3d
         self.arcface = arcface
@@ -187,7 +187,7 @@ class VasaLoss(nn.Module):
 
 
 class PortraitLoss(nn.Module):
-    def __init__(self, perceptual_weight=1.0, gaze_weight=1.0, gan_weight=1.0, cycle_weight=2.0, arcface_model=None, emodel=None, gaze_model=None):
+    def __init__(self, perceptual_weight=0.10, gaze_weight=0.10, gan_weight=10.0, cycle_weight=2.0, arcface_model=None, emodel=None, gaze_model=None):
         super(PortraitLoss, self).__init__()
         self.perceptual_loss = PerceptualLoss(arcface_model, gaze_model)
         self.gan_loss = GANLoss()  # Replace with your discriminator
