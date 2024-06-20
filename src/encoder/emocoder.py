@@ -91,10 +91,7 @@ class Emocoder(nn.Module):
         self.model.load_state_dict(torch.load(file_path, map_location=self.device))
         print(f'Model loaded from {file_path}')
 
-    def predict(self, img_tensor):
-        with torch.no_grad():
-            output = self.model(img_tensor)
-            print("Output shape:", output.shape) 
+     
 
 def get_trainable_emonet(emo_path, device='cuda'):
     return Emocoder(emo_path)
@@ -106,4 +103,3 @@ if __name__ == "__main__":
     emocoder.train(num_epochs=3)
     emocoder.save_model()
     emocoder.load_model('resnet18_finetuned.pth')
-    emocoder.predict('path_to_your_image.jpg')

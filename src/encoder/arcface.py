@@ -131,12 +131,11 @@ class Backbone(nn.Module):
                 ])
     
     def forward(self,x):
-        with torch.no_grad():
-            x = self.transforms(x)
-            x = self.input_layer(x)
-            x = self.body(x)
-            x = self.output_layer(x)
-            return x
+        x = self.transforms(x)
+        x = self.input_layer(x)
+        x = self.body(x)
+        x = self.output_layer(x)
+        return x
 
 def get_config(training = True):
     conf = {}
@@ -215,7 +214,8 @@ class face_learner(object):
 def get_model_arcface(model_path):
     fl = face_learner()
     fl.load_state(model_path, True, True)
-    fl.model.eval()
+    for param in fl.model.parameters():
+        param.requires_grad = False
     return fl.model
 
         

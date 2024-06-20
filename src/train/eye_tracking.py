@@ -75,8 +75,8 @@ class GazeNet(nn.Module):
 
     def get_gaze(self, img):
         img = self.preprocess(img)
-        with torch.no_grad():
-            x = self.forward(img.to(self.device))
+        # with torch.no_grad():
+        x = self.forward(img.to(self.device))
         return x
 
 def get_gaze_model():
@@ -88,6 +88,8 @@ def get_gaze_model():
         print('Tried to load GPU but found none. Please check your environment')
     state_dict = torch.load("./models/gazenet.pth", map_location=device)
     model.load_state_dict(state_dict)
+    for param in model.parameters():
+        param.requires_grad = False
     print('Model loaded using {} as device'.format(device))
 
     model.eval()

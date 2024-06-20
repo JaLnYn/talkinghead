@@ -566,15 +566,15 @@ class BaseModel(ABC):
                 net = getattr(self, name)
                 net.eval()
 
-    def test(self):
-        """Forward function used in test time.
+    # def test(self):
+    #     """Forward function used in test time.
 
-        This function wraps <forward> function in no_grad() so we don't save intermediate steps for backprop
-        It also calls <compute_visuals> to produce additional visualization results
-        """
-        with torch.no_grad():
-            self.forward()
-            self.compute_visuals()
+    #     This function wraps <forward> function in no_grad() so we don't save intermediate steps for backprop
+    #     It also calls <compute_visuals> to produce additional visualization results
+    #     """
+    #     with torch.no_grad():
+    #         self.forward()
+    #         self.compute_visuals()
 
     def compute_visuals(self):
         """Calculate additional output images for visdom and HTML visualization"""
@@ -1028,6 +1028,16 @@ class FaceReconModel(BaseModel):
         self.net_recon = define_net_recon(
             net_recon="resnet50", use_last_fc=False, init_path='checkpoints/init_model/resnet50-0676ba61.pth'
         )
+        
+        
+        # FREEZE FACE RECON
+        for param in self.net_recon.backbone.parameters():
+            param.requires_grad = False
+        if not self.net_recon.use_last_fc:
+            for layer in self.net_recon.final_layers:
+                for param in layer.parameters():
+                    param.requires_grad = False
+
         center = 112.
         focal = 1015.
         camera_distance = 10.
@@ -1037,6 +1047,11 @@ class FaceReconModel(BaseModel):
             is_train=False
             )
         self.facemodel.to("cuda")
+        
+        for param in self.facemodel.__dict__.values():
+            if isinstance(param, torch.Tensor):
+                param.requires_grad = False
+
         print("face model loaded", self.facemodel.device)
         
         fov = 2 * np.arctan(center / focal) * 180 / np.pi
@@ -1065,30 +1080,16 @@ class FaceReconModel(BaseModel):
         self.image_paths = input['im_paths'] if 'im_paths' in input else None
 
     def forward(self, img, compute_render=False):
-        with torch.no_grad():
-            output_coeff = self.net_recon(img)
-            if not compute_render:
-                return output_coeff
-            self.facemodel.to(self.device)
-            # print(output_coeff)
-            pred_vertex, pred_tex, pred_color, pred_lm = \
-                self.facemodel.compute_for_render(output_coeff)
+        output_coeff = self.net_recon(img)
+        if not compute_render:
+            return output_coeff
+        self.facemodel.to(self.device)
+        # print(output_coeff)
+        pred_vertex, pred_tex, pred_color, pred_lm = \
+            self.facemodel.compute_for_render(output_coeff)
 
-            return pred_vertex, pred_tex, pred_color, pred_lm   
-            
-            #pred_coeffs_dict = self.facemodel.split_coeff(output_coeff)
+        return pred_vertex, pred_tex, pred_color, pred_lm   
 
-            # output_vis = pred_face * pred_mask + (1 - pred_mask) * img
-            # utput_vis_numpy_raw = 255. * output_vis.detach().cpu().permute(0, 2, 3, 1).numpy()
-            
-            #output_vis_numpy = np.concatenate((input_img_numpy, 
-            #                        output_vis_numpy_raw), axis=-2)
-
-            # output_vis = torch.tensor(
-            #         output_vis_numpy / 255., dtype=torch.float32
-            #     ).permute(0, 3, 1, 2).to(self.device)
-            
-            # return pred_coeffs_dict
 
 
     def optimize_parameters(self, isTrain=True):
@@ -1101,26 +1102,25 @@ class FaceReconModel(BaseModel):
             self.optimizer.step()        
 
     def compute_visuals(self):
-        with torch.no_grad():
-            input_img_numpy = 255. * self.input_img.detach().cpu().permute(0, 2, 3, 1).numpy()
-            output_vis = self.pred_face * self.pred_mask + (1 - self.pred_mask) * self.input_img
-            output_vis_numpy_raw = 255. * output_vis.detach().cpu().permute(0, 2, 3, 1).numpy()
-            
-            if self.gt_lm is not None:
-                gt_lm_numpy = self.gt_lm.cpu().numpy()
-                pred_lm_numpy = self.pred_lm.detach().cpu().numpy()
-                output_vis_numpy = draw_landmarks(output_vis_numpy_raw, gt_lm_numpy, 'b')
-                output_vis_numpy = draw_landmarks(output_vis_numpy, pred_lm_numpy, 'r')
-            
-                output_vis_numpy = np.concatenate((input_img_numpy, 
-                                    output_vis_numpy_raw, output_vis_numpy), axis=-2)
-            else:
-                output_vis_numpy = np.concatenate((input_img_numpy, 
-                                    output_vis_numpy_raw), axis=-2)
+        input_img_numpy = 255. * self.input_img.detach().cpu().permute(0, 2, 3, 1).numpy()
+        output_vis = self.pred_face * self.pred_mask + (1 - self.pred_mask) * self.input_img
+        output_vis_numpy_raw = 255. * output_vis.detach().cpu().permute(0, 2, 3, 1).numpy()
+        
+        if self.gt_lm is not None:
+            gt_lm_numpy = self.gt_lm.cpu().numpy()
+            pred_lm_numpy = self.pred_lm.detach().cpu().numpy()
+            output_vis_numpy = draw_landmarks(output_vis_numpy_raw, gt_lm_numpy, 'b')
+            output_vis_numpy = draw_landmarks(output_vis_numpy, pred_lm_numpy, 'r')
+        
+            output_vis_numpy = np.concatenate((input_img_numpy, 
+                                output_vis_numpy_raw, output_vis_numpy), axis=-2)
+        else:
+            output_vis_numpy = np.concatenate((input_img_numpy, 
+                                output_vis_numpy_raw), axis=-2)
 
-            self.output_vis = torch.tensor(
-                    output_vis_numpy / 255., dtype=torch.float32
-                ).permute(0, 3, 1, 2).to(self.device)
+        self.output_vis = torch.tensor(
+                output_vis_numpy / 255., dtype=torch.float32
+            ).permute(0, 3, 1, 2).to(self.device)
 
     def save_mesh(self, name):
 

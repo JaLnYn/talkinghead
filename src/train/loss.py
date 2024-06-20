@@ -135,17 +135,15 @@ class VasaLoss(nn.Module):
         zi = self.emodel(giiij)
         zj = self.emodel(gjjij)
 
-        with torch.no_grad():
+        coeffs_s = self.face3d(giiij, compute_render=False)
+        coef_dict_s = self.face3d.facemodel.split_coeff(coeffs_s)
+        r_s = coef_dict_s['angle']
+        t_s = coef_dict_s['trans']
 
-            coeffs_s = self.face3d(giiij, compute_render=False)
-            coef_dict_s = self.face3d.facemodel.split_coeff(coeffs_s)
-            r_s = coef_dict_s['angle']
-            t_s = coef_dict_s['trans']
-
-            coeffs_d = self.face3d(gjjij, compute_render=False)
-            coef_dict_d = self.face3d.facemodel.split_coeff(coeffs_d)
-            r_d = coef_dict_d['angle']
-            t_d = coef_dict_d['trans']
+        coeffs_d = self.face3d(gjjij, compute_render=False)
+        coef_dict_d = self.face3d.facemodel.split_coeff(coeffs_d)
+        r_d = coef_dict_d['angle']
+        t_d = coef_dict_d['trans']
 
         cosloss = F.cosine_embedding_loss(zi, zj, torch.ones(zi.size(0)).to(zi.device))/batch_size * self.emodel_weight
         assert zi.size(0) == batch_size
