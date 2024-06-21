@@ -1,16 +1,16 @@
 training:
-  name: 'local_train'
+  name: 'no_vasa'
   data_path: 'dataset/mp4'
   learning_rate: 0.01
   num_epochs: 10
-  batch_size: 4
+  batch_size: 16
 
 weights:
   vasa:
-    gaze: 0.2
-    arcface: 0.2
-    emodel: 0.2
-    face3d: 0.2
+    gaze: 0
+    arcface: 0
+    emodel: 0
+    face3d: 0
   gan:
     real: 0.2
     fake: 0.2
