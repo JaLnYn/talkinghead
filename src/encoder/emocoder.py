@@ -6,18 +6,13 @@ from torch.utils.data import DataLoader
 from PIL import Image
 
 class Emocoder(nn.Module):
-    def __init__(self, load_model_path=None):
+    def __init__(self):
         super(Emocoder, self).__init__()
         self.model = None
         self.model = models.resnet18(weights='IMAGENET1K_V1')
 
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-        num_linear = 256
-
-        if load_model_path is not None:
-            self.load_model(load_model_path)
-        
         # Unfreezing the last three layers
         for name, child in self.model.named_children():
             if name in ['layer3', 'layer4', 'fc']:
@@ -96,8 +91,8 @@ class Emocoder(nn.Module):
             output = self.model(img_tensor)
             print("Output shape:", output.shape) 
 
-def get_trainable_emonet(emo_path, device='cuda'):
-    return Emocoder(emo_path)
+def get_trainable_emonet():
+    return Emocoder()
 
 
 # Usage example

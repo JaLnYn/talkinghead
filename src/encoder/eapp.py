@@ -78,12 +78,8 @@ class Eapp(nn.Module):
         self.load_state_dict(torch.load(path, map_location=torch.device('cuda' if torch.cuda.is_available() else 'cpu')))
         print(f'Model loaded from {path}')
 
-def get_eapp_model(path=None, device='cuda'):
+def get_eapp_model():
     model = Eapp()
-    # if path is not None and os.path.exists(path):
-    #     model.load_model(path)
-    # else:
-    #     print('No model found at path. Creating new model.')
     return model
 
 

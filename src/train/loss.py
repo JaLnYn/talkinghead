@@ -5,11 +5,10 @@ from torchvision.models import resnet18
 from src.train.discriminator import MultiScalePatchDiscriminator
 
 class PerceptualLoss(nn.Module):
-    def __init__(self, arcface_model, gaze_model, arcface_weight=0.1, imagenet_weight=0.1,  gaze_weight=0.1):
+    def __init__(self, config, arcface_model, gaze_model):
+
         super(PerceptualLoss, self).__init__()
-        self.arcface_weight = arcface_weight
-        self.imagenet_weight = imagenet_weight
-        self.gaze_weight = gaze_weight
+        self.config = config
         self.arcface = arcface_model
         self.imageNet = resnet18(weights='IMAGENET1K_V1')
 
@@ -18,6 +17,10 @@ class PerceptualLoss(nn.Module):
             param.requires_grad = False
 
         self.gaze_model = gaze_model
+        
+        self.arcface_weight = config["weights"]["perceptual"]["arcface"]
+        self.imagenet_weight = config["weights"]["perceptual"]["imagenet"]
+        self.gaze_weight = config["weights"]["perceptual"]["gaze"]
 
     def forward(self, source, driver, pred):
 
@@ -51,10 +54,12 @@ class PerceptualLoss(nn.Module):
 
 
 class GANLoss(nn.Module):
-    def __init__(self, weight=1.0):
+    def __init__(self, config):
         super(GANLoss, self).__init__()
         self.discriminator = MultiScalePatchDiscriminator(input_channels=3)
-        self.weight = weight
+        self.real_weight = config["weights"]["gan"]["real"] 
+        self.fake_weight = config["weights"]["gan"]["fake"]
+        self.feature_matching_weight = config["weights"]["gan"]["feature_matching"]
 
     def forward(self, real, fake):
         # Get discriminator outputs and features for both real and fake images
@@ -67,6 +72,8 @@ class GANLoss(nn.Module):
         for real_output, fake_output in zip(real_outputs, fake_outputs):
             real_loss = real_loss  + torch.mean(F.relu(1.0 - real_output))
             fake_loss = fake_loss  + torch.mean(F.relu(1.0 + fake_output))
+        real_loss = real_loss * self.real_weight
+        fake_loss = fake_loss * self.fake_weight    
 
         # Compute feature matching loss
         feature_matching_loss = 0
@@ -77,14 +84,20 @@ class GANLoss(nn.Module):
                 # Calculate L1 loss between corresponding features from real and fake images
                 feature_matching_loss = feature_matching_loss + F.l1_loss(real_feat.detach(), fake_feat)
 
+        feature_matching_loss = feature_matching_loss * self.feature_matching_weight
+
         # Normalize losses by number of scales and sum real and fake hinge losses
         total_loss = (real_loss + fake_loss) / len(real_outputs) + feature_matching_loss / sum(len(feats) for feats in real_features)
-        return total_loss * self.weight
+        return total_loss,{
+            'real_loss': real_loss,
+            'fake_loss': fake_loss,
+            'feature_matching_loss': feature_matching_loss
+        }
     
 class CycleConsistencyLoss(nn.Module):
-    def __init__(self,  emodel, weight=0.1, scale=5.0, margin=0.2):
+    def __init__(self, config, emodel, scale=5.0, margin=0.2):
         super(CycleConsistencyLoss, self).__init__()
-        self.weight = weight
+        self.weight = config["weights"]["cycle"]
         self.emodel = emodel
         self.scale = scale
         self.margin = margin
@@ -117,16 +130,16 @@ class CycleConsistencyLoss(nn.Module):
 
 
 class VasaLoss(nn.Module):
-    def __init__(self, face3d, arcface, emodel, gaze_model, gaze_weight=0.1, arcface_weight=0.1, emodel_weight=0.1, face3d_weight=0.1):
+    def __init__(self, config, face3d, arcface, emodel, gaze_model):
         super(VasaLoss, self).__init__()
         self.face3d = face3d
         self.arcface = arcface
         self.emodel = emodel
         self.gaze_model = gaze_model
-        self.gaze_weight = gaze_weight
-        self.arcface_weight = arcface_weight
-        self.emodel_weight = emodel_weight
-        self.face3d_weight = face3d_weight
+        self.gaze_weight = config["weights"]["vasa"]["gaze"]
+        self.arcface_weight = config["weights"]["vasa"]["arcface"]
+        self.emodel_weight = config["weights"]["vasa"]["emodel"]
+        self.face3d_weight = config["weights"]["vasa"]["face3d"] 
 
     def forward(self, giiij, gjjij, gsd, gsmod):
         batch_size = giiij.size(0)
@@ -163,31 +176,33 @@ class VasaLoss(nn.Module):
         return (arcloss + gaze_loss + rotation_loss + cosloss, {"arcloss": arcloss, "gazeloss": gaze_loss, "rotationloss": rotation_loss, "cosloss": cosloss})
 
 
-class PortraitLoss(nn.Module):
-    def __init__(self, perceptual_weight=0.10, gaze_weight=0.10, gan_weight=1.0, cycle_weight=0.5, arcface_model=None, emodel=None, gaze_model=None):
-        super(PortraitLoss, self).__init__()
-        self.perceptual_loss = PerceptualLoss(arcface_model, gaze_model)
-        self.gan_loss = GANLoss()  # Replace with your discriminator
-        self.cycle_loss = CycleConsistencyLoss(emodel)
-        
-        self.perceptual_weight = perceptual_weight
-        self.gaze_weight = gaze_weight
-        self.gan_weight = gan_weight
-        self.cycle_weight = cycle_weight
-
-    def forward(self, Xs, Xd, Xsp, Xdp, gsd, gspd): #(self, Xs, Xd, Xsp, Xdp, gsd, gsdp, gspd, gspdp):
-        batch_size = Xs.size(0)
-        # Compute perceptual loss
-        Lper = self.perceptual_loss(Xs, Xd, gsd)
-        # Lper = Lper + self.perceptual_loss(Xs, Xdp, gsdp)
-        Lper = Lper + self.perceptual_loss(Xsp, Xd, gspd)
-        # Lper = Lper + self.perceptual_loss(Xsp, Xdp, gspdp)
-
-        Lgan = self.gan_loss(Xs, gsd)
-        # Lgan = Lgan + self.gan_loss(Xs, gsdp)
-        Lgan = Lgan + self.gan_loss(Xsp, gspd)
-        # Lgan = Lgan + self.gan_loss(Xsp, gspdp)
-
-        Lcyc = self.cycle_loss(Xd, Xdp, gsd, gspd)
-
-        return sum(self.perceptual_weight * Lper + self.cycle_weight * Lcyc)/batch_size + self.gan_weight * Lgan 
+# class PortraitLoss(nn.Module):
+#     def __init__(self, config, arcface_model=None, emodel=None, gaze_model=None):
+#         super(PortraitLoss, self).__init__()
+#         self.perceptual_loss = PerceptualLoss(arcface_model, gaze_model)
+#         self.gan_loss = GANLoss()  # Replace with your discriminator
+#         self.cycle_loss = CycleConsistencyLoss(emodel)
+#         
+#         self.perceptual_weight = config["weights"]["perceptual"]
+#         self.gaze_weight = config["weights"]["gaze"]
+#         self.gan_weight = config["weights"]["gan"]
+#         self.cycle_weight = config["weights"]["cycle"]
+# 
+# 
+#     def forward(self, Xs, Xd, Xsp, Xdp, gsd, gspd): #(self, Xs, Xd, Xsp, Xdp, gsd, gsdp, gspd, gspdp):
+#         batch_size = Xs.size(0)
+#         # Compute perceptual loss
+#         Lper = self.perceptual_loss(Xs, Xd, gsd)
+#         # Lper = Lper + self.perceptual_loss(Xs, Xdp, gsdp)
+#         Lper = Lper + self.perceptual_loss(Xsp, Xd, gspd)
+#         # Lper = Lper + self.perceptual_loss(Xsp, Xdp, gspdp)
+# 
+#         Lgan = self.gan_loss(Xs, gsd)
+#         # Lgan = Lgan + self.gan_loss(Xs, gsdp)
+#         Lgan = Lgan + self.gan_loss(Xsp, gspd)
+#         # Lgan = Lgan + self.gan_loss(Xsp, gspdp)
+# 
+#         Lcyc = self.cycle_loss(Xd, Xdp, gsd, gspd)
+# 
+#         return sum(self.perceptual_weight * Lper + self.cycle_weight * Lcyc)/batch_size + self.gan_weight * Lgan 
+# 

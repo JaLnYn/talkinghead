@@ -18,9 +18,10 @@ import torch.nn as nn
 import dlib
 
 class Portrait(nn.Module):
-    def __init__(self, eapp_path="./models/eapp.pth", emo_path="./models/emodel.pth"):
+    def __init__(self, config):
         super(Portrait, self).__init__()
 
+        self.config = config
 
         arcface_model_path = "./models/arcface2/model_ir_se50.pth"
         face3d_model_path = "./models/face3drecon.pth"
@@ -29,56 +30,44 @@ class Portrait(nn.Module):
 
         self.face3d = get_face_recon_model(face3d_model_path)
 
-        if eapp_path is not None:
-            self.eapp = get_eapp_model(None, "cuda")
-        else:
-            self.eapp = get_eapp_model(None, "cuda")
+        self.eapp = get_eapp_model()
+
+        self.emodel = get_trainable_emonet()
 
         self.arcface = get_model_arcface(arcface_model_path)
-
-        if emo_path is not None:
-            self.emodel = get_trainable_emonet(emo_path)
-        else:
-            self.emodel = get_trainable_emonet(None)
 
         self.decoder = FaceDecoder()
 
         self.gaze_model = get_gaze_model()
 
-        # self.loss = PortraitLoss(emodel=self.emodel, arcface_model=self.arcface, gaze_model=self.gaze_model)
+        self.v1loss = VasaLoss(config, face3d=self.face3d, arcface=self.arcface, emodel=self.emodel, gaze_model=self.gaze_model)
+        self.perceptual_loss = PerceptualLoss(config, arcface_model=self.arcface, gaze_model=self.gaze_model)
+        self.gan_loss = GANLoss(config)
+        self.cycle_loss = CycleConsistencyLoss(config, emodel=self.emodel)
 
-        self.v1loss = VasaLoss(face3d=self.face3d, arcface=self.arcface, emodel=self.emodel, gaze_model=self.gaze_model)
-        self.perceptual_loss = PerceptualLoss(arcface_model=self.arcface, gaze_model=self.gaze_model)
-        self.gan_loss = GANLoss(weight=1.0)
-        self.cycle_loss = CycleConsistencyLoss(weight=1.0, emodel=self.emodel)
-
-        self.perceptual_weight = 1.0
-        self.gan_weight = 1.0
-        self.cycle_weight = 2.0
-
-    def train_model(self, train_loader, num_epochs=10, learning_rate=0.001, start_epoch=0, checkpoint_path=None):
-        optimizer = torch.optim.Adam(self.parameters(), lr=learning_rate)
+    def train_model(self, train_loader):
+        optimizer = torch.optim.Adam(self.parameters(), lr=self.config["training"]["learning_rate"])
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.to(device)
         wandb.init(project='portrait_project', resume="allow")
-        
-        if checkpoint_path:
-            checkpoint = torch.load(checkpoint_path)
-            self.load_state_dict(checkpoint['model_state_dict'])
-            optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
-            start_epoch = checkpoint['epoch'] + 1  # Start from next epoch
+
+        checkpoint_path = f"./models/portrait/{self.config['training']['name']}/"
+        num_epochs = self.config["training"]["num_epochs"]
+
+        start_epoch = 0
+
+        if checkpoint_path is not None:
+            if os.path.exists(checkpoint_path) and len(os.listdir(checkpoint_path)) == 0:
+                latest_epoch = max([int(epoch_dir.split("epoch")[1]) for epoch_dir in os.listdir(checkpoint_path)])
+                checkpoint_path = os.path.join(checkpoint_path, f"epoch{latest_epoch}/checkpoint.pth")
+
+                checkpoint = torch.load(checkpoint_path)
+                self.load_state_dict(checkpoint['model_state_dict'])
+                optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+                start_epoch = checkpoint['epoch'] + 1  # Start from next epoch
 
         for epoch in range(start_epoch, num_epochs):
             running_loss = 0
-            running_gaze_loss = 0
-            running_image_net_loss = 0
-            running_face_loss = 0
-            running_gan_loss = 0
-            running_cycle_loss = 0
-            running_arcface_loss = 0
-            running_emodel_loss = 0
-            running_gaze_loss2 = 0
-            running_face3d_loss = 0
 
             # Wrap the training loader with tqdm for a progress bar
             train_iterator = tqdm.tqdm(train_loader, desc=f"Epoch {epoch + 1}/{num_epochs}", total=len(train_loader))
@@ -116,19 +105,9 @@ class Portrait(nn.Module):
 
                 Lvasa = self.v1loss(giiij, gjjij, gsd, gsmod)
 
-                total_loss = Lper[0] + Lcyc + Lgan + Lvasa[0]
+                total_loss = Lper[0] + Lcyc + Lgan[0] + Lvasa[0]
 
                 running_loss += total_loss.item()
-                running_gaze_loss += Lper[1]['Lgaze']
-                running_image_net_loss += Lper[1]['Lin']
-                running_face_loss += Lper[1]['Lface']
-                running_gan_loss += Lgan.item()
-                running_cycle_loss += Lcyc.item()
-                running_arcface_loss += Lvasa[1]['arcloss']
-                running_face3d_loss += Lvasa[1]['rotationloss']
-                running_emodel_loss += Lvasa[1]['cosloss']
-                running_gaze_loss2 += Lvasa[1]['gazeloss']
-
 
                 total_loss.backward()
                 optimizer.step()
@@ -142,33 +121,46 @@ class Portrait(nn.Module):
                         'Example Output SPD': wandb.Image(gspd[0].cpu().detach().numpy().transpose(1, 2, 0)),
                     })
 
-                wandb.log({
+                wandb_log = {
                     'Epoch': epoch + 1,
-                    'Total Loss': total_loss.item(),
-                    'Gaze Loss': Lper[1]['Lgaze'],
-                    'ImageNet Loss': Lper[1]['Lin'],
-                    'Face Loss': Lper[1]['Lface'],
-                    'GAN Loss': Lgan.item(),
-                    'Cycle Loss': Lcyc.item(),
-                    'ArcFace Loss': Lvasa[1]['arcloss'],
-                    'Face3D Loss': Lvasa[1]['rotationloss'],
-                    'EModel Loss': Lvasa[1]['cosloss'],
-                    'Second Gaze Loss': Lvasa[1]['gazeloss']
-                })
+                    'Total Loss': total_loss.item()
+                }
+
+                if self.config['weights']['perceptual']['gaze'] != 0:
+                    wandb_log['Gaze Loss'] = Lper[1]['Lgaze'].item()
+                if self.config['weights']['perceptual']['imagenet'] != 0:
+                    wandb_log['ImageNet Loss'] = Lper[1]['Lin'].item()
+                if self.config['weights']['perceptual']['arcface'] != 0:
+                    wandb_log['Face Loss'] = Lper[1]['Lface'].item()
+                if self.config['weights']['gan']['real'] + self.config['weights']['gan']['fake'] + self.config['weights']['gan']['feature_matching']!= 0:
+                    wandb_log['GAN Loss'] = Lgan[0].item()
+                if self.config['weights']['gan']['real'] != 0:
+                    wandb_log['GAN real Loss'] = Lgan[1]['real_loss'].item()
+                if self.config['weights']['gan']['fake'] != 0:
+                    wandb_log['GAN fake Loss'] = Lgan[1]['fake_loss'].item()
+                if self.config['weights']['gan']['feature_matching'] != 0:
+                    wandb_log['Gan feature Loss'] = Lgan[1]['feature_matching_loss'].item()
+                if self.config['weights']['cycle'] != 0:
+                    wandb_log['Cycle Loss'] = Lcyc.item()
+                if self.config['weights']['vasa']['arcface'] != 0:
+                    wandb_log['ArcFace Loss'] = Lvasa[1]['arcloss'].item()
+                if self.config['weights']['vasa']['face3d'] != 0:
+                    wandb_log['Face3D Loss'] = Lvasa[1]['rotationloss'].item()
+                if self.config['weights']['vasa']['emodel'] != 0:
+                    wandb_log['EModel Loss'] = Lvasa[1]['cosloss'].item()
+                if self.config['weights']['vasa']['gaze'] != 0:
+                    wandb_log['Second Gaze Loss'] = Lvasa[1]['gazeloss'].item()
+
+                wandb.log(wandb_log)
 
                 train_iterator.set_description(
-                    f"Epoch {epoch + 1}/{num_epochs}, Total Loss: {total_loss.item():.4f}, "
-                    f"Face: {running_face_loss:.4f}, INet: {running_image_net_loss:.4f}, "
-                    f"Gaze: {running_gaze_loss:.4f}, Gaze2: {running_gaze_loss2:.4f}, "
-                    f"Gan: {running_gan_loss:.4f}, Cycle: {running_cycle_loss:.4f}, "
-                    f"ArcFace: {running_arcface_loss:.4f}, EModel: {running_emodel_loss:.4f}, "
-                    f"Face3D: {running_face3d_loss:.4f}"
+                    f"Epoch {epoch + 1}/{num_epochs}, Total Loss: {total_loss.item():.4f}"
                 )
 
                 step += 1
             
             # self.save_model(path="./models/portrait/epoch{}/".format(epoch))
-            self.save_model(path="./models/portrait/epoch{}/".format(epoch), epoch=epoch, optimizer=optimizer)
+            self.save_model(path=f"./models/portrait/{self.config['training']['name']}/epoch{epoch}/", epoch=epoch, optimizer=optimizer)
             print(f'Epoch {epoch+1}, Average Loss {running_loss / len(train_loader):.4f}')
 
 

@@ -1,4 +1,5 @@
 from src.dataloader import VideoDataset
+import yaml
 
 from torch.utils.data import DataLoader
 from src.dataloader import VideoDataset, transform  # Import the dataset class and transformation
@@ -71,20 +72,20 @@ def main():
     import argparse
     parser = argparse.ArgumentParser(description="Script for handling emopath and eapp_path arguments.")
     
-    parser.add_argument('--emopath', type=str, default=None, help='Path to the emotion model file. Default is None.')
-    parser.add_argument('--eapp_path', type=str, default=None, help='Path to the application data file. Default is None.')
-    parser.add_argument('--data_path', type=str, default='./dataset/mp4', help='Path to the dataset. The folder should be folder of mp4s.')
-    parser.add_argument('--batch_size', type=int, default=16, help='batches')
-    parser.add_argument('--model_dir', type=str, default='./models/portrait/', help='Path to the model directory. The folder should be folder of pths')
-    parser.add_argument('--checkpoint_path', type=str, default=None, help='Path to the training checkpoint to resume from.')
-    args = parser.parse_args()
+    parser.add_argument('--config_path', type=str, default=None, help='Path to the config')
     args = parser.parse_args()
 
-    
-    video_dataset = load_data(root_dir='./dataset/mp4', transform=transform, batch_size=args.batch_size)
-    p = Portrait(args.eapp_path, args.emopath)
+    if args.config_path is not None:
+        with open(args.config_path, 'r') as file:
+            config = yaml.safe_load(file)
+    else:
+        print("Config path is None")
+        assert False
+        
+    video_dataset = load_data(root_dir='./dataset/mp4', transform=transform, batch_size=config["training"]["batch_size"])
+    p = Portrait(config)
 
-    p.train_model(video_dataset, checkpoint_path=args.checkpoint_path)
+    p.train_model(video_dataset)
 
 
 if __name__ == '__main__':
