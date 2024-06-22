@@ -16,7 +16,7 @@ weights:
     fake: 0
     feature_matching: 0
   perceptual:
-    arcface: 0
+    arcface: 0.2
     imagenet: 0.2
     gaze: 0
   cycle: 0
