@@ -87,9 +87,8 @@ class Emocoder(nn.Module):
         print(f'Model loaded from {file_path}')
 
     def predict(self, img_tensor):
-        with torch.no_grad():
-            output = self.model(img_tensor)
-            print("Output shape:", output.shape) 
+        output = self.model(img_tensor)
+        print("Output shape:", output.shape) 
 
 def get_trainable_emonet():
     return Emocoder()

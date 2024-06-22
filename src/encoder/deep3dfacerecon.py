@@ -988,6 +988,9 @@ class ReconNetWrapper(nn.Module):
                 nn.init.constant_(m.weight, 0.)
                 nn.init.constant_(m.bias, 0.)
         self.to(torch.device('cuda'))
+        for param in self.backbone.parameters():
+            param.requires_grad = False
+        
 
     def forward(self, x):
         x = self.backbone(x)
@@ -998,7 +1001,7 @@ class ReconNetWrapper(nn.Module):
             x = torch.flatten(torch.cat(output, dim=1), 1)
         return x
 
-def define_net_recon(net_recon, use_last_fc=False, init_path=None):
+def define_net_recon(net_recon, use_last_fc=True, init_path=None):
     return ReconNetWrapper(net_recon, use_last_fc=use_last_fc, init_path=init_path)
 
 
@@ -1065,16 +1068,15 @@ class FaceReconModel(BaseModel):
         self.image_paths = input['im_paths'] if 'im_paths' in input else None
 
     def forward(self, img, compute_render=False):
-        with torch.no_grad():
-            output_coeff = self.net_recon(img)
-            if not compute_render:
-                return output_coeff
-            self.facemodel.to(self.device)
-            # print(output_coeff)
-            pred_vertex, pred_tex, pred_color, pred_lm = \
-                self.facemodel.compute_for_render(output_coeff)
+        output_coeff = self.net_recon(img)
+        if not compute_render:
+            return output_coeff
+        self.facemodel.to(self.device)
+        # print(output_coeff)
+        pred_vertex, pred_tex, pred_color, pred_lm = \
+            self.facemodel.compute_for_render(output_coeff)
 
-            return pred_vertex, pred_tex, pred_color, pred_lm   
+        return pred_vertex, pred_tex, pred_color, pred_lm   
             
             #pred_coeffs_dict = self.facemodel.split_coeff(output_coeff)
 
@@ -1101,6 +1103,7 @@ class FaceReconModel(BaseModel):
             self.optimizer.step()        
 
     def compute_visuals(self):
+        assert False
         with torch.no_grad():
             input_img_numpy = 255. * self.input_img.detach().cpu().permute(0, 2, 3, 1).numpy()
             output_vis = self.pred_face * self.pred_mask + (1 - self.pred_mask) * self.input_img
@@ -1231,50 +1234,3 @@ if __name__ == '__main__':
     plt.imshow(image.cpu())
     plt.axis('off')
     plt.savefig('image.png', bbox_inches='tight', pad_inches=0)
-    
-  # print(frame1)
-
-
-# if __name__ == '__main__':
-#     # from src.encoder.vggface import vgg_face_dag
-#     from torch.utils.data import DataLoader
-#     from src.dataloader import VideoDataset, transform  # Import the dataset class and transformation
-#     import matplotlib.pyplot as plt
-#     import torch
-#     import numpy as np
-# 
-#     model = get_face_recon_model("./models/face3drecon.pth")
-# 
-#     video_dataset = VideoDataset(root_dir='./dataset/mp4', transform=transform)
-# 
-#     print(video_dataset[0].shape)
-#     print(video_dataset[0][0].shape)
-# 
-#     f0 = video_dataset[0][0].unsqueeze(0).permute(0, 3, 1, 2).to("cuda")
-#     f1 = video_dataset[0][1].unsqueeze(0).permute(0, 3, 1, 2).to("cuda")
-#     f2 = video_dataset[1][0].unsqueeze(0).permute(0, 3, 1, 2).to("cuda")
-#     e0, a0, b0, l0 = model(f0, compute_render=True)
-#     e1, a1, b1, l1 = model(f1, compute_render=True)
-#     e2, a2, b2, l2 = model(f2, compute_render=True)
-#     print((e0 - e1).sum(), (e2 - e0).sum())
-#     print((a0 - a1).sum(), (a2 - a0).sum())
-#     print((b0 - b1).sum(), (b2 - b0).sum())
-#     print((l0 - l1).sum(), (l2 - l0).sum())
-#     recon_shape = e1  # get reconstructed shape
-#     recon_shape[..., -1] = 10 - recon_shape[..., -1] # from camera space to world space
-#     recon_shape = recon_shape.cpu().numpy()[0]
-#     trimesh.Trimesh(vertices=recon_shape, faces=model.facemodel.face_buf.cpu().numpy(), vertex_colors=np.clip(255. * 0, 0, 255).astype(np.uint8), process=False).export("nice.obj")
-#     image = f1.squeeze(0)
-# 
-#     # Convert from CxHxW to HxWxC for visualization (channel first to channel last)
-#     image = image.permute(1, 2, 0)
-# 
-#     # Normalize the image for visualization
-#     image = (image - image.min()) / (image.max() - image.min())
-# 
-#     # Display the image using matplotlib
-#     plt.imshow(image.cpu())
-#     plt.axis('off')
-#     plt.savefig('image.png', bbox_inches='tight', pad_inches=0)
-#     
-    # print(frame1)

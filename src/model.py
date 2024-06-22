@@ -165,18 +165,18 @@ class Portrait(nn.Module):
 
     def forward(self, Xs, Xd, return_components=False):
         # input are images
-        with torch.no_grad():
 
-            coeffs_s = self.face3d(Xs, compute_render=False)
-            coef_dict_s = self.face3d.facemodel.split_coeff(coeffs_s)
-            r_s = coef_dict_s['angle']
-            t_s = coef_dict_s['trans']
-            e_s = self.arcface(Xs)
+        coeffs_s = self.face3d(Xs, compute_render=False)
+        coef_dict_s = self.face3d.facemodel.split_coeff(coeffs_s)
+        r_s = coef_dict_s['angle']
+        t_s = coef_dict_s['trans']
+        e_s = self.arcface(Xs)
+        # r_s, t_s, r_d, t_d = None, None, None, None
 
-            coeffs_d = self.face3d(Xd, compute_render=False)
-            coef_dict_d = self.face3d.facemodel.split_coeff(coeffs_d)
-            r_d = coef_dict_d['angle']
-            t_d = coef_dict_d['trans']
+        coeffs_d = self.face3d(Xd, compute_render=False)
+        coef_dict_d = self.face3d.facemodel.split_coeff(coeffs_d)
+        r_d = coef_dict_d['angle']
+        t_d = coef_dict_d['trans']
         
         v_s = self.eapp(Xs)
         z_s = self.emodel(Xs) # expression
