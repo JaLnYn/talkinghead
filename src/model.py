@@ -75,7 +75,6 @@ class Portrait(nn.Module):
             step = 0
             for Xs, Xd, Xsp, Xdp in train_iterator:
                 min_batch_size = min(Xs.size(0), Xd.size(0), Xsp.size(0), Xdp.size(0))
-                print(Xs.size(0), Xd.size(0), Xsp.size(0), Xdp.size(0))
 
                 # Check if the minimum batch size is zero
                 if min_batch_size == 0:

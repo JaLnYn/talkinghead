@@ -73,8 +73,6 @@ class GANLoss(nn.Module):
             real_loss = real_loss  + torch.mean(F.relu(1.0 - real_output))
             fake_loss = fake_loss  + torch.mean(F.relu(1.0 + fake_output))
 
-        real_loss = torch.clamp(real_loss, min=0, max=5)
-        fake_loss = torch.clamp(fake_loss, min=0, max=5)
         real_loss = real_loss * self.real_weight
         fake_loss = fake_loss * self.fake_weight    
 
@@ -86,10 +84,7 @@ class GANLoss(nn.Module):
             # For each scale, iterate over each feature map
             for real_feat, fake_feat in zip(scale_real_feats, scale_fake_feats):
                 # Calculate L1 loss between corresponding features from real and fake images
-                print(F.l1_loss(real_feat.detach(), fake_feat))
                 feature_matching_loss = feature_matching_loss + F.l1_loss(real_feat.detach(), fake_feat)
-        feature_matching_loss = torch.clamp(feature_matching_loss, min=0, max=5)
-
 
         feature_matching_loss = feature_matching_loss * self.feature_matching_weight
 
