@@ -3,7 +3,7 @@ training:
   data_path: 'dataset/mp4'
   learning_rate: 0.01
   num_epochs: 10
-  batch_size: 16
+  batch_size: 8 
 
 weights:
   vasa:
