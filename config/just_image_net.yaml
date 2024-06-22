@@ -1,5 +1,5 @@
 training:
-  name: 'no_vasa'
+  name: 'just_image_net'
   data_path: 'dataset/mp4'
   learning_rate: 0.01
   num_epochs: 10
