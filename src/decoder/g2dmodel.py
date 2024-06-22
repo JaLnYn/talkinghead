@@ -22,6 +22,7 @@ class G2D(nn.Module):
         self.upsample3 = nn.Upsample(scale_factor=2, mode='bilinear', align_corners=False)
         self.resblock11 = ResBlock2D(128, 64)
         self.conv_out = nn.Conv2d(64, 3, kernel_size=3, padding=1)
+        self.sigmoid = nn.Sigmoid()
         self.to('cuda' if torch.cuda.is_available() else 'cpu')
 
     def forward(self, x):
@@ -43,6 +44,7 @@ class G2D(nn.Module):
         x = self.upsample3(x)
         x = self.resblock11(x)
         x = self.conv_out(x)
+        x = self.sigmoid(x)
         # x = x[:, :, 6:250, 6:250]
         x = x[:, :, 16:240, 16:240]
         return x
