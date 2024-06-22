@@ -111,7 +111,7 @@ class Portrait(nn.Module):
                 total_loss.backward()
                 optimizer.step()
                 
-                if step == 0:
+                if step % log_interval == 0:
                     wandb.log({
                         'Example Source': wandb.Image(Xs[0].cpu().detach().numpy().transpose(1, 2, 0)),
                         'Example Source Prime': wandb.Image(Xsp[0].cpu().detach().numpy().transpose(1, 2, 0)),
