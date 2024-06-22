@@ -72,9 +72,8 @@ class GANLoss(nn.Module):
         fake_loss = 0
 
         for real_output, fake_output in zip(real_outputs, fake_outputs):
-            print(real_output.size(), fake_output.size())
             real_loss = real_loss + F.binary_cross_entropy_with_logits(real_output, torch.ones_like(real_output))
-            fake_loss = fake_loss + F.binary_cross_entropy_with_logits(fake_output, torch.ones_like(fake_output))
+            fake_loss = fake_loss + F.binary_cross_entropy_with_logits(fake_output, torch.zeros_like(fake_output))
 
         real_loss = real_loss * self.real_weight
         fake_loss = fake_loss * self.fake_weight    
