@@ -37,19 +37,20 @@ class PerceptualLoss(nn.Module):
         Lin_scaled = Lin * self.imagenet_weight
 
         # Gaze loss
-        gaze_pred_1 = self.gaze_model.get_gaze(pred)
-        gaze_pred_2 = self.gaze_model.get_gaze(driver)
-        Lgaze = torch.norm(gaze_pred_1 - gaze_pred_2, dim=1).mean()  # Normalize over batch
-        Lgaze_scaled = Lgaze * self.gaze_weight
+        # gaze_pred_1 = self.gaze_model.get_gaze(pred)
+        # gaze_pred_2 = self.gaze_model.get_gaze(driver)
+        # Lgaze = torch.norm(gaze_pred_1 - gaze_pred_2, dim=1).mean()  # Normalize over batch
+        # Lgaze_scaled = Lgaze * self.gaze_weight
+        # Lgaze_scaled = 0 * self.gaze_weight
 
         # Calculate total weighted perceptual loss
-        total_loss = Lface_scaled + Lin_scaled + Lgaze_scaled
+        total_loss = Lface_scaled + Lin_scaled # + Lgaze_scaled
 
         # Return individual losses along with the total
         return total_loss, {
             'Lface': Lface_scaled,
             'Lin': Lin_scaled,
-            'Lgaze': Lgaze_scaled
+            # 'Lgaze': Lgaze_scaled
         }
 
 
@@ -165,14 +166,14 @@ class VasaLoss(nn.Module):
         rotation_loss = sum(torch.norm(r_s - r_d, dim=1) + torch.norm(t_s - t_d, dim=1))/batch_size * self.face3d_weight
         assert r_s.size(0) == batch_size
 
-        gaze_pred_1 = self.gaze_model.get_gaze(giiij)
-        gaze_pred_2 = self.gaze_model.get_gaze(gjjij)
-        assert gaze_pred_1.size(0) == batch_size
-        gaze_loss = sum(torch.norm(gaze_pred_1 - gaze_pred_2, dim=1))/batch_size * self.gaze_weight
+        # gaze_pred_1 = self.gaze_model.get_gaze(giiij)
+        # gaze_pred_2 = self.gaze_model.get_gaze(gjjij)
+        # assert gaze_pred_1.size(0) == batch_size
+        # gaze_loss = sum(torch.norm(gaze_pred_1 - gaze_pred_2, dim=1))/batch_size * self.gaze_weight
 
         esd = self.arcface(gsd)
         emod = self.arcface(gsmod)
 
         arcloss = F.cosine_embedding_loss(esd, emod, -torch.ones(esd.size(0)).to(esd.device))
-        return (arcloss + gaze_loss + rotation_loss + cosloss, {"arcloss": arcloss, "gazeloss": gaze_loss, "rotationloss": rotation_loss, "cosloss": cosloss})
+        return (arcloss + rotation_loss + cosloss, {"arcloss": arcloss, "rotationloss": rotation_loss, "cosloss": cosloss})
 

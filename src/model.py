@@ -38,7 +38,8 @@ class Portrait(nn.Module):
 
         self.decoder = FaceDecoder()
 
-        self.gaze_model = get_gaze_model()
+        # self.gaze_model = get_gaze_model()
+        self.gaze_model = None
 
         self.v1loss = VasaLoss(config, face3d=self.face3d, arcface=self.arcface, emodel=self.emodel, gaze_model=self.gaze_model)
         self.perceptual_loss = PerceptualLoss(config, arcface_model=self.arcface, gaze_model=self.gaze_model)
@@ -125,8 +126,8 @@ class Portrait(nn.Module):
                     'Total Loss': total_loss.item()
                 }
 
-                if self.config['weights']['perceptual']['gaze'] != 0:
-                    wandb_log['Gaze Loss'] = Lper[1]['Lgaze'].item()
+                # if self.config['weights']['perceptual']['gaze'] != 0:
+                #     wandb_log['Gaze Loss'] = Lper[1]['Lgaze'].item()
                 if self.config['weights']['perceptual']['imagenet'] != 0:
                     wandb_log['ImageNet Loss'] = Lper[1]['Lin'].item()
                 if self.config['weights']['perceptual']['arcface'] != 0:
@@ -147,8 +148,8 @@ class Portrait(nn.Module):
                     wandb_log['Face3D Loss'] = Lvasa[1]['rotationloss'].item()
                 if self.config['weights']['vasa']['emodel'] != 0:
                     wandb_log['EModel Loss'] = Lvasa[1]['cosloss'].item()
-                if self.config['weights']['vasa']['gaze'] != 0:
-                    wandb_log['Second Gaze Loss'] = Lvasa[1]['gazeloss'].item()
+                # if self.config['weights']['vasa']['gaze'] != 0:
+                #     wandb_log['Second Gaze Loss'] = Lvasa[1]['gazeloss'].item()
 
                 wandb.log(wandb_log)
 
