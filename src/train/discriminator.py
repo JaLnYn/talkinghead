@@ -7,22 +7,22 @@ class PatchDiscriminator(nn.Module):
     def __init__(self, input_channels, num_filters=64, final_input_size=128):
         super(PatchDiscriminator, self).__init__()
         self.conv1 = nn.Conv2d(input_channels, num_filters, kernel_size=4, stride=2, padding=1)
+        self.bn1 = nn.BatchNorm2d(num_filters)
         self.conv2 = nn.Conv2d(num_filters, num_filters * 2, kernel_size=4, stride=2, padding=1)
+        self.bn2 = nn.BatchNorm2d(num_filters * 2)
         self.conv3 = nn.Conv2d(num_filters * 2, num_filters * 4, kernel_size=4, stride=2, padding=1)
+        self.bn3 = nn.BatchNorm2d(num_filters * 4)
         self.conv4 = nn.Conv2d(num_filters * 4, num_filters * 8, kernel_size=4, stride=1, padding=1)
+        self.bn4 = nn.BatchNorm2d(num_filters * 8)
         self.final = nn.Conv2d(num_filters * 8, 1, kernel_size=4, stride=1, padding=1)
-        self.flatten = nn.Flatten()
-        self.linear = nn.Linear(final_input_size, 1)
         self.leaky_relu = nn.LeakyReLU(0.2, inplace=True)
 
     def forward(self, x):
-        feat1 = self.leaky_relu(self.conv1(x))
-        feat2 = self.leaky_relu(self.conv2(feat1))
-        feat3 = self.leaky_relu(self.conv3(feat2))
-        feat4 = self.leaky_relu(self.conv4(feat3))
+        eat1 = self.leaky_relu(self.bn1(self.conv1(x)))
+        feat2 = self.leaky_relu(self.bn2(self.conv2(feat1)))
+        feat3 = self.leaky_relu(self.bn3(self.conv3(feat2)))
+        feat4 = self.leaky_relu(self.bn4(self.conv4(feat3)))
         out = self.final(feat4)
-        out = self.flatten(out)
-        out = self.linear(out)
         # Return both the final output and the list of feature maps
         return out, [feat1, feat2, feat3, feat4]
 

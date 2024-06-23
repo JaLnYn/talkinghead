@@ -14,6 +14,7 @@ weights:
   gan:
     real: 0.2
     fake: 0.2
+    adversarial: 0.2
     feature_matching: 0.2
   perceptual:
     arcface: 0

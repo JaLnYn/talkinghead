@@ -60,6 +60,7 @@ class GANLoss(nn.Module):
         self.discriminator = MultiScalePatchDiscriminator(input_channels=3)
         self.real_weight = config["weights"]["gan"]["real"] 
         self.fake_weight = config["weights"]["gan"]["fake"]
+        self.adversarial_weight = config["weights"]["gan"]["adverserial"]
         self.feature_matching_weight = config["weights"]["gan"]["feature_matching"]
 
     def forward(self, real, fake):
@@ -70,11 +71,15 @@ class GANLoss(nn.Module):
         # Compute hinge loss for real and fake images
         real_loss = 0
         fake_loss = 0
+        adversarial_loss = 0
 
         for real_output, fake_output in zip(real_outputs, fake_outputs):
             real_loss = real_loss + F.relu(1.0 - real_output).mean()
             fake_loss = fake_loss + F.relu(1.0 + fake_output).mean()
+            adversarial_loss = adversarial_loss - torch.mean(fake_output)
+        
 
+        adversarial_loss = adversarial_loss * self.adversarial_weight
         real_loss = real_loss * self.real_weight
         fake_loss = fake_loss * self.fake_weight    
 
@@ -90,11 +95,12 @@ class GANLoss(nn.Module):
         feature_matching_loss = feature_matching_loss * self.feature_matching_weight
 
         # Normalize losses by number of scales and sum real and fake hinge losses
-        total_loss = (real_loss + fake_loss) / len(real_outputs) + feature_matching_loss / sum(len(feats) for feats in real_features)
+        total_loss = (real_loss + fake_loss + adversarial_loss) / len(real_outputs) + feature_matching_loss / sum(len(feats) for feats in real_features)
         return total_loss,{
             'real_loss': real_loss,
             'fake_loss': fake_loss,
-            'feature_matching_loss': feature_matching_loss
+            'feature_matching_loss': feature_matching_loss,
+            'adversarial_loss': adversarial_loss
         }
     
 class CycleConsistencyLoss(nn.Module):
