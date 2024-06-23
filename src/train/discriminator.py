@@ -18,7 +18,7 @@ class PatchDiscriminator(nn.Module):
         self.leaky_relu = nn.LeakyReLU(0.2, inplace=True)
 
     def forward(self, x):
-        eat1 = self.leaky_relu(self.bn1(self.conv1(x)))
+        feat1 = self.leaky_relu(self.bn1(self.conv1(x)))
         feat2 = self.leaky_relu(self.bn2(self.conv2(feat1)))
         feat3 = self.leaky_relu(self.bn3(self.conv3(feat2)))
         feat4 = self.leaky_relu(self.bn4(self.conv4(feat3)))
