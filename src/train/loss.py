@@ -60,7 +60,7 @@ class GANLoss(nn.Module):
         self.discriminator = MultiScalePatchDiscriminator(input_channels=3)
         self.real_weight = config["weights"]["gan"]["real"] 
         self.fake_weight = config["weights"]["gan"]["fake"]
-        self.adversarial_weight = config["weights"]["gan"]["adverserial"]
+        self.adversarial_weight = config["weights"]["gan"]["adversarial"]
         self.feature_matching_weight = config["weights"]["gan"]["feature_matching"]
 
     def forward(self, real, fake):
