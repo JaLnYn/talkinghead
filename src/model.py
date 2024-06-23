@@ -139,7 +139,7 @@ class Portrait(nn.Module):
                 if self.config['weights']['gan']['fake'] != 0:
                     wandb_log['GAN fake Loss'] = Lgan[1]['fake_loss'].item()
                 if self.config['weights']['gan']['adversarial'] != 0:
-                    wandb_log['GAN fake Loss'] = Lgan[1]['adversarial'].item()
+                    wandb_log['GAN adversarial Loss'] = Lgan[1]['adversarial_loss'].item()
                 if self.config['weights']['gan']['feature_matching'] != 0:
                     wandb_log['Gan feature Loss'] = Lgan[1]['feature_matching_loss'].item()
                 if self.config['weights']['cycle'] != 0:
