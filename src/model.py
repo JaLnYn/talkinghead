@@ -75,7 +75,7 @@ class Portrait(nn.Module):
 
             # Wrap the training loader with tqdm for a progress bar
             train_iterator = tqdm.tqdm(train_loader, desc=f"Epoch {epoch + 1}/{num_epochs}", total=len(train_loader))
-            log_interval = len(train_loader) // 20
+            log_interval = 10 # len(train_loader) // 20
             step = 0
             for Xs, Xd, Xsp, Xdp in train_iterator:
                 min_batch_size = min(Xs.size(0), Xd.size(0), Xsp.size(0), Xdp.size(0))
@@ -93,7 +93,7 @@ class Portrait(nn.Module):
                 optimizer.zero_grad()
 
                 gsd, (v_s, e_s, r_s, t_s, z_s), (v_d, e_d, r_d, t_d, z_d)  = self(Xs, Xd, return_components=True)
-                gspd, (v_sp, e_sp, r_sp, t_sp, z_sp), (v_d, e_d, r_d, t_d, z_d) = self(Xsp, Xd, return_components=True)
+                gspd, (v_sp, e_sp, r_sp, t_sp, z_sp), (v_d1, e_d1, r_d1, t_d1, z_d1) = self(Xsp, Xd, return_components=True)
 
                 # construct vasa loss
                 giiij = self.decoder((v_s, e_s, r_s, t_s, z_s), (None, None, r_s, t_s, z_d))
@@ -103,7 +103,7 @@ class Portrait(nn.Module):
                 # loss = self.loss(Xs, Xd, Xsp, Xdp, gsd, gspd)
 
                 Lper = self.perceptual_loss(Xs, Xd, gsd)
-                Lgan = self.gan_loss(Xs, gsd)
+                Lgan = self.gan_loss(Xd, gsd)
                 Lcyc = self.cycle_loss(Xd, Xdp, gsd, gspd)
 
                 Lvasa = self.v1loss(giiij, gjjij, gsd, gsmod)
@@ -125,11 +125,11 @@ class Portrait(nn.Module):
                     })
                 
 
-                if step % 5 == 0:
-                    if step % 20 == 0:
-                        print(f"Step {step}, {gsd[0].cpu().detach().numpy().transpose(1, 2, 0)}")
-                    Image.fromarray(np.uint8((Xs[0]*256).cpu().detach().numpy().transpose(1, 2, 0))).save(f"./test/Xs{step}.png")
-                    Image.fromarray(np.uint8((gsd[0]*256).cpu().detach().numpy().transpose(1, 2, 0))).save(f"./test/Xsd{step}.png")
+                # if step % 5 == 0:
+                #    if step % 20 == 0:
+                #        print(f"Step {step}, {gsd[0].cpu().detach().numpy().transpose(1, 2, 0)}")
+                #    Image.fromarray(np.uint8((Xs[0]*256).cpu().detach().numpy().transpose(1, 2, 0))).save(f"./test/Xs{step}.png")
+                #    Image.fromarray(np.uint8((gsd[0]*256).cpu().detach().numpy().transpose(1, 2, 0))).save(f"./test/Xsd{step}.png")
 
                 wandb_log = {
                     'Epoch': epoch + 1,
