@@ -46,7 +46,14 @@ def collate_frames(batch):
         Xd = torch.stack(Xd_stack)
         Xs_prime = torch.stack(Xs_prime_stack)
         Xd_prime = torch.stack(Xd_prime_stack)
-        return Xs, Xd, Xs_prime, Xd_prime
+        
+        # Concatenate Xs with Xs_prime and Xd with Xd_prime
+        Xs_combined = torch.cat((Xs, Xs_prime), dim=0)
+        Xd_combined = torch.cat((Xd, Xd_prime), dim=0)
+        Xs_prime_combined = torch.cat((Xs_prime, Xs), dim=0)
+        Xd_prime_combined = torch.cat((Xd_prime, Xd), dim=0)
+
+        return Xs_combined, Xd_combined, Xs_prime_combined, Xd_prime_combined
     else:
         # Return zero tensors if not enough frames were available
         zero_tensor = torch.zeros((1, 3, 224, 224))  # Adjust dimensions as per your model's requirement

@@ -26,14 +26,14 @@ class PerceptualLoss(nn.Module):
 
         # ArcFace loss
         pred_features = self.arcface(pred)
-        target_features = self.arcface(source)
-        Lface = F.cosine_embedding_loss(pred_features, target_features, torch.ones(pred_features.size(0)).to(pred_features.device))
+        target_features = self.arcface(driver)
+        Lface = F.l1_loss(pred_features, target_features)
         Lface_scaled = Lface * self.arcface_weight
 
         # ImageNet ResNet-18 loss
         pred_in = self.imageNet(pred)
-        target_in = self.imageNet(source)
-        Lin = torch.norm(pred_in - target_in, dim=1).mean()  # Normalize over batch
+        target_in = self.imageNet(driver)
+        Lin = F.l1_loss(pred_in, target_in)  # Normalize over batch
         Lin_scaled = Lin * self.imagenet_weight
 
         # Gaze loss
