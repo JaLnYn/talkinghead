@@ -3,6 +3,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torchvision.models import resnet18
 from src.train.discriminator import MultiScalePatchDiscriminator
+from torchvision.transforms import Normalize
 
 class PerceptualLoss(nn.Module):
     def __init__(self, config, arcface_model, gaze_model):
@@ -11,6 +12,7 @@ class PerceptualLoss(nn.Module):
         self.config = config
         self.arcface = arcface_model
         self.imageNet = resnet18(weights='IMAGENET1K_V1')
+        self.normalize = Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
 
         # freeze image net
         for param in self.imageNet.parameters():
@@ -31,8 +33,8 @@ class PerceptualLoss(nn.Module):
         Lface_scaled = Lface * self.arcface_weight
 
         # ImageNet ResNet-18 loss
-        pred_in = self.imageNet(pred)
-        target_in = self.imageNet(driver)
+        pred_in = self.imageNet(self.normalize(pred))
+        target_in = self.imageNet(self.normalize(driver))
         Lin = F.l1_loss(pred_in, target_in)  # Normalize over batch
         Lin_scaled = Lin * self.imagenet_weight
 

@@ -17,6 +17,9 @@ import torch
 import torch.nn as nn
 import dlib
 
+from PIL import Image
+import numpy as np
+
 class Portrait(nn.Module):
     def __init__(self, config):
         super(Portrait, self).__init__()
@@ -120,6 +123,13 @@ class Portrait(nn.Module):
                         'Example Output': wandb.Image(gsd[0].cpu().detach().numpy().transpose(1, 2, 0)),
                         'Example Output SPD': wandb.Image(gspd[0].cpu().detach().numpy().transpose(1, 2, 0)),
                     })
+                
+
+                if step % 5 == 0:
+                    if step % 20 == 0:
+                        print(f"Step {step}, {gsd[0].cpu().detach().numpy().transpose(1, 2, 0)}")
+                    Image.fromarray(np.uint8((Xs[0]*256).cpu().detach().numpy().transpose(1, 2, 0))).save(f"./test/Xs{step}.png")
+                    Image.fromarray(np.uint8((gsd[0]*256).cpu().detach().numpy().transpose(1, 2, 0))).save(f"./test/Xsd{step}.png")
 
                 wandb_log = {
                     'Epoch': epoch + 1,

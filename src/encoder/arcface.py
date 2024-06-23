@@ -214,7 +214,6 @@ class face_learner(object):
 def get_model_arcface(model_path):
     fl = face_learner()
     fl.load_state(model_path, True, True)
-    fl.model.eval()
     for p in fl.model.parameters():
         p.requires_grad = False
     return fl.model

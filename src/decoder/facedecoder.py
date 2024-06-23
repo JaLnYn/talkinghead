@@ -60,23 +60,4 @@ class FaceDecoder(nn.Module):
         apply_wd = apply_warping_field(g_1, w_d)
         g2 = self.g2d(apply_wd)
         return g2
-    
-    def save_model(self, path='./models/portrait/decoder/'):
-        """
-        Save the model parameters to the specified path.
-        
-        Args:
-        model (torch.nn.Module): The PyTorch model to save.
-        path (str): Path to the file where the model parameters are saved.
-        """
-        os.makedirs(path, exist_ok=True)
-        self.g3d.save_model(path + "g3d.pth")
-        self.g2d.save_model(path + "g2d.pth")
-        self.warping_module_d.save_model(path + "warping_module_d.pth")
-        self.warping_module_s.save_model(path + "warping_module_s.pth")
-    
-    def load_model(self, path='./models/portrait/decoder/'):
-        self.g3d.load_model(path + "g3d.pth")
-        self.g2d.load_model(path + "g2d.pth")
-        self.warping_module_d.load_model(path + "warping_module_d.pth")
-        self.warping_module_s.load_model(path + "warping_module_s.pth")
+

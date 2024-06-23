@@ -5,7 +5,7 @@ import torch
 import random
 from torch.utils.data import Dataset
 from decord import VideoReader, cpu
-from torchvision.transforms import Compose, Lambda
+from torchvision.transforms import Compose, Lambda, Normalize
 
 from decord import VideoReader, cpu
 
@@ -37,6 +37,6 @@ class VideoDataset(Dataset):
 # Define transformations
 transform = Compose([
     Lambda(lambda x: x.permute(0, 3, 1, 2).float()),
-    Lambda(lambda x: (x / 255.0) * 2 - 1)  # Normalize to [-1, 1]
+    Lambda(lambda x: (x / 255.0)),  # Normalize to [0, 1]
 ])
 

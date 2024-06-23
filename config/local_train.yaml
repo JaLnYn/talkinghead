@@ -1,21 +1,21 @@
 training:
   name: 'local_train'
   data_path: 'dataset/mp4'
-  learning_rate: 0.01
+  learning_rate: 0.001
   num_epochs: 10
   batch_size: 2
 
 weights:
   vasa:
-    gaze: 0
+    gaze: 0.2
     arcface: 0.2
     emodel: 0.2
-    face3d: 0.2
+    face3d: 0
   gan:
     real: 0.2
     fake: 0.2
     feature_matching: 0.2
-    adversarial: 0.2
+    adversarial: 0
   perceptual:
     arcface: 0.2
     imagenet: 0.2
