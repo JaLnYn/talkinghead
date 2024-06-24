@@ -1,0 +1,23 @@
+training:
+  name: 'pruned'
+  data_path: 'dataset/mp4'
+  learning_rate: 0.001
+  num_epochs: 10
+  batch_size: 12
+
+weights:
+  vasa:
+    gaze: 0
+    arcface: 0.0
+    emodel: 0.0
+    face3d: 0.0
+  gan:
+    real: 0.2
+    fake: 0.2
+    adversarial: 0.2
+    feature_matching: 0.2
+  perceptual:
+    arcface: 0.5
+    imagenet: 0.5
+    gaze: 0
+  cycle: 0.2
