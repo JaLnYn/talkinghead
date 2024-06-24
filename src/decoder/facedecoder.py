@@ -48,7 +48,8 @@ class FaceDecoder(nn.Module):
     def forward(self, Xs, Xd):
         (v_s, e_s, r_s, t_s, z_s) = Xs # v_s*z_s-e_s 
         (v_d, e_d, r_d, t_d, z_d) = Xd
-        w_s = self.warping_module_s(e_s + z_s, r_s, t_s)
+        # w_s = self.warping_module_s(e_s + z_s, r_s, t_s)
+        w_s = self.warping_module_s(z_s, r_s, t_s)
         
         # apply_ws = torch.einsum("bdxyz,bwxyz->bdxyz", v_s, w_s)
         apply_ws = apply_warping_field(v_s, w_s)

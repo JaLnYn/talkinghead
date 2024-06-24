@@ -140,12 +140,13 @@ class WarpingGenerator(nn.Module):
         w_em_c2d = self.flowfield(zd_sum)
 
         # Compute rotation/translation warping
-        w_rt_c2d = compute_rt_warp(Rd, td, invert=False, grid_size=64)
+        # w_rt_c2d = compute_rt_warp(Rd, td, invert=False, grid_size=64)
 
          # Resize w_em_c2d to match w_rt_c2d
         w_em_c2d_resized = F.interpolate(w_em_c2d, size=w_rt_c2d.shape[2:], mode='trilinear', align_corners=False)
 
-        w_c2d = w_rt_c2d + w_em_c2d_resized
+        # w_c2d = w_rt_c2d + w_em_c2d_resized
+        w_c2d = w_em_c2d_resized
 
         return w_c2d
     

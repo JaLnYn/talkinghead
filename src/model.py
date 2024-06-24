@@ -183,13 +183,15 @@ class Portrait(nn.Module):
         coef_dict_s = self.face3d.facemodel.split_coeff(coeffs_s)
         r_s = coef_dict_s['angle']
         t_s = coef_dict_s['trans']
-        e_s = self.arcface(Xs)
+        e_s = None # self.arcface(Xs)
         # r_s, t_s, r_d, t_d = None, None, None, None
 
-        coeffs_d = self.face3d(Xd, compute_render=False)
-        coef_dict_d = self.face3d.facemodel.split_coeff(coeffs_d)
-        r_d = coef_dict_d['angle']
-        t_d = coef_dict_d['trans']
+        # coeffs_d = self.face3d(Xd, compute_render=False)
+        # coef_dict_d = self.face3d.facemodel.split_coeff(coeffs_d)
+        # r_d = coef_dict_d['angle']
+        # t_d = coef_dict_d['trans']
+        r_d = None
+        t_d = None
         
         v_s = self.eapp(Xs)
         z_s = self.emodel(Xs) # expression
@@ -198,7 +200,7 @@ class Portrait(nn.Module):
         Y = self.decoder((v_s, e_s, r_s, t_s, z_s), (None, None, r_d, t_d, z_d))
         if return_components:
             v_d = self.eapp(Xd)
-            e_d = self.arcface(Xd)
+            e_d = None # self.arcface(Xd)
             return Y, (v_s, e_s, r_s, t_s, z_s), (v_d, e_d, r_d, t_d, z_d)
         return Y
 
