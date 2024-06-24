@@ -37,14 +37,15 @@ class Portrait(nn.Module):
 
         self.emodel = get_trainable_emonet()
 
-        self.arcface = get_model_arcface(arcface_model_path)
+        # self.arcface = get_model_arcface(arcface_model_path)
+        self.arcface = None
 
         self.decoder = FaceDecoder()
 
         # self.gaze_model = get_gaze_model()
         self.gaze_model = None
 
-        self.v1loss = VasaLoss(config, face3d=self.face3d, arcface=self.arcface, emodel=self.emodel, gaze_model=self.gaze_model)
+        # self.v1loss = VasaLoss(config, face3d=self.face3d, arcface=self.arcface, emodel=self.emodel, gaze_model=self.gaze_model)
         self.perceptual_loss = PerceptualLoss(config, arcface_model=self.arcface, gaze_model=self.gaze_model)
         self.gan_loss = GANLoss(config)
         self.cycle_loss = CycleConsistencyLoss(config, emodel=self.emodel)
@@ -96,8 +97,8 @@ class Portrait(nn.Module):
                 gspd, (v_sp, e_sp, r_sp, t_sp, z_sp), (v_d1, e_d1, r_d1, t_d1, z_d1) = self(Xsp, Xd, return_components=True)
 
                 # construct vasa loss
-                giiij = self.decoder((v_s, e_s, r_s, t_s, z_s), (None, None, r_s, t_s, z_d))
-                gjjij = self.decoder((v_d, e_d, r_d, t_d, z_d), (None, None, r_s, t_s, z_d))
+                # giiij = self.decoder((v_s, e_s, r_s, t_s, z_s), (None, None, r_s, t_s, z_d))
+                # gjjij = self.decoder((v_d, e_d, r_d, t_d, z_d), (None, None, r_s, t_s, z_d))
                 gsmod = self.decoder((v_sp, e_sp, r_sp, t_sp, z_sp), (None, None, r_d, t_d, z_d))
 
                 # loss = self.loss(Xs, Xd, Xsp, Xdp, gsd, gspd)
@@ -106,9 +107,9 @@ class Portrait(nn.Module):
                 Lgan = self.gan_loss(Xd, gsd)
                 Lcyc = self.cycle_loss(Xd, Xdp, gsd, gspd)
 
-                Lvasa = self.v1loss(giiij, gjjij, gsd, gsmod)
+                # Lvasa = self.v1loss(giiij, gjjij, gsd, gsmod)
 
-                total_loss = Lper[0] + Lcyc + Lgan[0] + Lvasa[0]
+                total_loss = Lper[0] + Lcyc + Lgan[0] # + Lvasa[0]
 
                 running_loss += total_loss.item()
 
@@ -138,6 +139,10 @@ class Portrait(nn.Module):
 
                 # if self.config['weights']['perceptual']['gaze'] != 0:
                 #     wandb_log['Gaze Loss'] = Lper[1]['Lgaze'].item()
+                if self.config['weights']['perceptual']['lpips'] != 0:
+                    wandb_log['ImageNet Loss'] = Lper[1]['Lpips'].item()
+                if self.config['weights']['perceptual']['arcface'] != 0:
+                    wandb_log['Face Loss'] = Lper[1]['Lface'].item()
                 if self.config['weights']['perceptual']['imagenet'] != 0:
                     wandb_log['ImageNet Loss'] = Lper[1]['Lin'].item()
                 if self.config['weights']['perceptual']['arcface'] != 0:

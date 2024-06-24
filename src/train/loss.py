@@ -4,6 +4,7 @@ import torch.nn.functional as F
 from torchvision.models import resnet18
 from src.train.discriminator import MultiScalePatchDiscriminator
 from torchvision.transforms import Normalize
+import lpips
 
 class PerceptualLoss(nn.Module):
     def __init__(self, config, arcface_model, gaze_model):
@@ -11,6 +12,8 @@ class PerceptualLoss(nn.Module):
         super(PerceptualLoss, self).__init__()
         self.config = config
         self.arcface = arcface_model
+        self.lpips =lpips.LPIPS(net='vgg')
+        self.lpips.cuda()
         self.imageNet = resnet18(weights='IMAGENET1K_V1')
         self.normalize = Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
 
@@ -23,20 +26,21 @@ class PerceptualLoss(nn.Module):
         self.arcface_weight = config["weights"]["perceptual"]["arcface"]
         self.imagenet_weight = config["weights"]["perceptual"]["imagenet"]
         self.gaze_weight = config["weights"]["perceptual"]["gaze"]
+        self.lpips_weight = config["weights"]["perceptual"]["lpips"] 
 
     def forward(self, source, driver, pred):
 
         # ArcFace loss
-        pred_features = self.arcface(pred)
-        target_features = self.arcface(driver)
-        Lface = F.l1_loss(pred_features, target_features)
-        Lface_scaled = Lface * self.arcface_weight
+        # pred_features = self.arcface(pred)
+        # target_features = self.arcface(driver)
+        # Lface = F.l1_loss(pred_features, target_features)
+        # Lface_scaled = Lface * self.arcface_weight
 
-        # ImageNet ResNet-18 loss
-        pred_in = self.imageNet(self.normalize(pred))
-        target_in = self.imageNet(self.normalize(driver))
-        Lin = F.l1_loss(pred_in, target_in)  # Normalize over batch
-        Lin_scaled = Lin * self.imagenet_weight
+        # # ImageNet ResNet-18 loss
+        # pred_in = self.imageNet(self.normalize(pred))
+        # target_in = self.imageNet(self.normalize(driver))
+        # Lin = F.l1_loss(pred_in, target_in)  # Normalize over batch
+        # Lin_scaled = Lin * self.imagenet_weight
 
         # Gaze loss
         # gaze_pred_1 = self.gaze_model.get_gaze(pred)
@@ -44,15 +48,19 @@ class PerceptualLoss(nn.Module):
         # Lgaze = torch.norm(gaze_pred_1 - gaze_pred_2, dim=1).mean()  # Normalize over batch
         # Lgaze_scaled = Lgaze * self.gaze_weight
         # Lgaze_scaled = 0 * self.gaze_weight
+        lpips_loss = self.lpips.forward(pred, driver) * self.lpips_weight
+
 
         # Calculate total weighted perceptual loss
-        total_loss = Lface_scaled + Lin_scaled # + Lgaze_scaled
+        # total_loss = Lface_scaled + Lin_scaled # + Lgaze_scaled
+        total_loss = lpips_loss # + Lgaze_scaled
 
         # Return individual losses along with the total
         return total_loss, {
-            'Lface': Lface_scaled,
-            'Lin': Lin_scaled,
+            # 'Lface': Lface_scaled,
+            # 'Lin': Lin_scaled,
             # 'Lgaze': Lgaze_scaled
+            'Lpips': lpips_loss
         }
 
 
