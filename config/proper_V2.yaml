@@ -1,0 +1,23 @@
+training:
+  name: 'proper_v2'
+  data_path: 'dataset/mp4'
+  learning_rate: 0.001
+  num_epochs: 10
+  batch_size: 12
+
+weights:
+  vasa:
+    gaze: 0
+    arcface: 0.2
+    emodel: 0.2
+    face3d: 0.2
+  gan:
+    real: 0.2
+    fake: 0.2
+    adversarial: 0.2
+    feature_matching: 0.2
+  perceptual:
+    arcface: 1.0
+    imagenet: 1.0
+    gaze: 0
+  cycle: 0.2

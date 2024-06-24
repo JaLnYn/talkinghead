@@ -69,17 +69,18 @@ class GANLoss(nn.Module):
         # Get discriminator outputs and features for both real and fake images
         real_outputs, real_features = self.discriminator(real)
         fake_outputs, fake_features = self.discriminator(fake)
+        faked_outputs, _ = self.discriminator(fake.detach())
 
         # Compute hinge loss for real and fake images
         real_loss = 0
         fake_loss = 0
         adversarial_loss = 0
+        for fo in fake_outputs:
+            adversarial_loss = adversarial_loss - torch.mean(fo)
 
-        for real_output, fake_output in zip(real_outputs, fake_outputs):
+        for real_output, fake_output in zip(real_outputs, faked_outputs):
             real_loss = real_loss + F.relu(1.0 - real_output).mean()
             fake_loss = fake_loss + F.relu(1.0 + fake_output).mean()
-            adversarial_loss = adversarial_loss - torch.mean(fake_output)
-        
 
         adversarial_loss = adversarial_loss * self.adversarial_weight
         real_loss = real_loss * self.real_weight
