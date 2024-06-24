@@ -37,8 +37,8 @@ class Portrait(nn.Module):
 
         self.emodel = get_trainable_emonet()
 
-        # self.arcface = get_model_arcface(arcface_model_path)
-        self.arcface = None
+        self.arcface = get_model_arcface(arcface_model_path)
+        # self.arcface = None
 
         self.decoder = FaceDecoder()
 
@@ -140,7 +140,7 @@ class Portrait(nn.Module):
                 # if self.config['weights']['perceptual']['gaze'] != 0:
                 #     wandb_log['Gaze Loss'] = Lper[1]['Lgaze'].item()
                 if self.config['weights']['perceptual']['lpips'] != 0:
-                    wandb_log['ImageNet Loss'] = Lper[1]['Lpips'].item()
+                    wandb_log['Lpips Loss'] = Lper[1]['Lpips'].item()
                 if self.config['weights']['perceptual']['arcface'] != 0:
                     wandb_log['Face Loss'] = Lper[1]['Lface'].item()
                 if self.config['weights']['perceptual']['imagenet'] != 0:

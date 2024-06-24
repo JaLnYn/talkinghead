@@ -48,7 +48,12 @@ class PerceptualLoss(nn.Module):
         # Lgaze = torch.norm(gaze_pred_1 - gaze_pred_2, dim=1).mean()  # Normalize over batch
         # Lgaze_scaled = Lgaze * self.gaze_weight
         # Lgaze_scaled = 0 * self.gaze_weight
-        lpips_loss = self.lpips.forward(pred, driver) * self.lpips_weight
+        # lpips_loss = self.lpips.forward(pred, driver) * self.lpips_weight
+        normalized_pred = 2 * pred - 1
+        normalized_driver = 2 * driver - 1
+        
+        # Compute lpips loss using the normalized tensors
+        lpips_loss = self.lpips.forward(normalized_pred, normalized_driver).mean() * self.lpips_weight
 
 
         # Calculate total weighted perceptual loss
