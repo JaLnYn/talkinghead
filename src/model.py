@@ -11,11 +11,11 @@ from src.encoder.emocoder import get_trainable_emonet
 from src.encoder.deep3dfacerecon import get_face_recon_model
 from src.encoder.arcface import get_model_arcface
 from src.encoder.eapp import get_eapp_model
-from src.train.loss import PerceptualLoss, GANLoss, CycleConsistencyLoss, VasaLoss
+from src.train.loss import PerceptualLoss, GANLoss, CycleConsistencyLoss
 from src.train.eye_tracking import get_gaze_model
 import torch
 import torch.nn as nn
-import dlib
+from facenet_pytorch import InceptionResnetV1
 
 from PIL import Image
 import numpy as np
@@ -23,29 +23,23 @@ import numpy as np
 class Portrait(nn.Module):
     def __init__(self, config):
         super(Portrait, self).__init__()
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
         self.config = config
 
-        arcface_model_path = "./models/arcface2/model_ir_se50.pth"
-        face3d_model_path = "./models/face3drecon.pth"
-
-        self.detector = dlib.get_frontal_face_detector()
-
-        self.face3d = get_face_recon_model(face3d_model_path)
+        self.vggface = None #TODO
 
         self.eapp = get_eapp_model()
 
         self.emodel = get_trainable_emonet()
 
-        self.arcface = get_model_arcface(arcface_model_path)
-
         self.decoder = FaceDecoder()
 
         # self.gaze_model = get_gaze_model()
-        self.gaze_model = None
+        self.vggface = InceptionResnetV1(pretrained='vggface2').to(self.device).eval()
 
-        self.v1loss = VasaLoss(config, face3d=self.face3d, arcface=self.arcface, emodel=self.emodel, gaze_model=self.gaze_model)
-        self.perceptual_loss = PerceptualLoss(config, arcface_model=self.arcface, gaze_model=self.gaze_model)
+        # self.v1loss = VasaLoss(config, face3d=self.face3d, vggface=self.arcface, emodel=self.emodel, gaze_model=self.gaze_model)
+        self.perceptual_loss = PerceptualLoss(config, vggface=self.vggface)
         self.gan_loss = GANLoss(config)
         self.cycle_loss = CycleConsistencyLoss(config, emodel=self.emodel)
 
@@ -96,9 +90,9 @@ class Portrait(nn.Module):
                 gspd, (v_sp, e_sp, r_sp, t_sp, z_sp), (v_d1, e_d1, r_d1, t_d1, z_d1) = self(Xsp, Xd, return_components=True)
 
                 # construct vasa loss
-                giiij = self.decoder((v_s, e_s, r_s, t_s, z_s), (None, None, r_s, t_s, z_d))
-                gjjij = self.decoder((v_d, e_d, r_d, t_d, z_d), (None, None, r_s, t_s, z_d))
-                gsmod = self.decoder((v_sp, e_sp, r_sp, t_sp, z_sp), (None, None, r_d, t_d, z_d))
+                # giiij = self.decoder((v_s, e_s, r_s, t_s, z_s), (None, None, r_s, t_s, z_d))
+                # gjjij = self.decoder((v_d, e_d, r_d, t_d, z_d), (None, None, r_s, t_s, z_d))
+                # gsmod = self.decoder((v_sp, e_sp, r_sp, t_sp, z_sp), (None, None, r_d, t_d, z_d))
 
                 # loss = self.loss(Xs, Xd, Xsp, Xdp, gsd, gspd)
 
@@ -106,9 +100,9 @@ class Portrait(nn.Module):
                 Lgan = self.gan_loss(Xd, gsd)
                 Lcyc = self.cycle_loss(Xd, Xdp, gsd, gspd)
 
-                Lvasa = self.v1loss(giiij, gjjij, gsd, gsmod)
+                # Lvasa = self.v1loss(giiij, gjjij, gsd, gsmod)
 
-                total_loss = Lper[0] + Lcyc + Lgan[0] + Lvasa[0]
+                total_loss = Lper[0] + Lcyc + Lgan[0]# + Lvasa[0]
 
                 running_loss += total_loss.item()
 
@@ -142,6 +136,10 @@ class Portrait(nn.Module):
                     wandb_log['ImageNet Loss'] = Lper[1]['Lin'].item()
                 if self.config['weights']['perceptual']['arcface'] != 0:
                     wandb_log['Face Loss'] = Lper[1]['Lface'].item()
+                if self.config['weights']['perceptual']['vggface'] != 0:
+                    wandb_log['Face Loss'] = Lper[1]['vggface'].item()
+                if self.config['weights']['perceptual']['lpips'] != 0:
+                    wandb_log['Face Loss'] = Lper[1]['lpips'].item()
                 if self.config['weights']['gan']['real'] + self.config['weights']['gan']['fake'] + self.config['weights']['gan']['feature_matching']!= 0:
                     wandb_log['GAN Loss'] = Lgan[0].item()
                 if self.config['weights']['gan']['real'] != 0:
@@ -154,12 +152,12 @@ class Portrait(nn.Module):
                     wandb_log['Gan feature Loss'] = Lgan[1]['feature_matching_loss'].item()
                 if self.config['weights']['cycle'] != 0:
                     wandb_log['Cycle Loss'] = Lcyc.item()
-                if self.config['weights']['vasa']['arcface'] != 0:
-                    wandb_log['ArcFace Loss'] = Lvasa[1]['arcloss'].item()
-                if self.config['weights']['vasa']['face3d'] != 0:
-                    wandb_log['Face3D Loss'] = Lvasa[1]['rotationloss'].item()
-                if self.config['weights']['vasa']['emodel'] != 0:
-                    wandb_log['EModel Loss'] = Lvasa[1]['cosloss'].item()
+                # if self.config['weights']['vasa']['arcface'] != 0:
+                #     wandb_log['ArcFace Loss'] = Lvasa[1]['arcloss'].item()
+                # if self.config['weights']['vasa']['face3d'] != 0:
+                #     wandb_log['Face3D Loss'] = Lvasa[1]['rotationloss'].item()
+                # if self.config['weights']['vasa']['emodel'] != 0:
+                #     wandb_log['EModel Loss'] = Lvasa[1]['cosloss'].item()
                 # if self.config['weights']['vasa']['gaze'] != 0:
                 #     wandb_log['Second Gaze Loss'] = Lvasa[1]['gazeloss'].item()
 
@@ -179,19 +177,17 @@ class Portrait(nn.Module):
     def forward(self, Xs, Xd, return_components=False):
         # input are images
 
-        coeffs_s = self.face3d(Xs, compute_render=False)
-        coef_dict_s = self.face3d.facemodel.split_coeff(coeffs_s)
-        r_s = coef_dict_s['angle']
-        t_s = coef_dict_s['trans']
+        # coeffs_s = self.face3d(Xs, compute_render=False)
+        # coef_dict_s = self.face3d.facemodel.split_coeff(coeffs_s)
+        # r_s = coef_dict_s['angle']
+        # t_s = coef_dict_s['trans']
         e_s = None # self.arcface(Xs)
-        # r_s, t_s, r_d, t_d = None, None, None, None
+        r_s, t_s, r_d, t_d = None, None, None, None
 
         # coeffs_d = self.face3d(Xd, compute_render=False)
         # coef_dict_d = self.face3d.facemodel.split_coeff(coeffs_d)
         # r_d = coef_dict_d['angle']
         # t_d = coef_dict_d['trans']
-        r_d = None
-        t_d = None
         
         v_s = self.eapp(Xs)
         z_s = self.emodel(Xs) # expression
