@@ -51,7 +51,7 @@ class PerceptualLoss(nn.Module):
         target_features = self.vggface(driver_range)
         vggface_loss = F.l1_loss(pred_features, target_features) * self.vggface_weight# Normalize over batch
 
-        lpips_ = self.lpips(pred_range, driver_range)
+        lpips_ = self.lpips(self.normalize(pred), self.normalize(driver))
         lpips_loss = lpips_.mean() * self.lpips_weight
         # print("lpips max:", lpips_.max().item(), "min:", lpips_.min().item())
 
