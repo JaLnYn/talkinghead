@@ -36,7 +36,7 @@ class Portrait(nn.Module):
         self.decoder = FaceDecoder()
 
         # self.gaze_model = get_gaze_model()
-        self.vggface = InceptionResnetV1(pretrained='vggface2').to(self.device).eval()
+        self.vggface = InceptionResnetV1(pretrained='vggface2').to(self.device)
 
         # self.v1loss = VasaLoss(config, face3d=self.face3d, vggface=self.arcface, emodel=self.emodel, gaze_model=self.gaze_model)
         self.perceptual_loss = PerceptualLoss(config, vggface=self.vggface)
@@ -137,9 +137,9 @@ class Portrait(nn.Module):
                 if self.config['weights']['perceptual']['arcface'] != 0:
                     wandb_log['Face Loss'] = Lper[1]['Lface'].item()
                 if self.config['weights']['perceptual']['vggface'] != 0:
-                    wandb_log['Face Loss'] = Lper[1]['vggface'].item()
+                    wandb_log['VggFace Loss'] = Lper[1]['vggface'].item()
                 if self.config['weights']['perceptual']['lpips'] != 0:
-                    wandb_log['Face Loss'] = Lper[1]['lpips'].item()
+                    wandb_log['lpips Loss'] = Lper[1]['lpips'].item()
                 if self.config['weights']['gan']['real'] + self.config['weights']['gan']['fake'] + self.config['weights']['gan']['feature_matching']!= 0:
                     wandb_log['GAN Loss'] = Lgan[0].item()
                 if self.config['weights']['gan']['real'] != 0:

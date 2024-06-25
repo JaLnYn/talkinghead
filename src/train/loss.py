@@ -17,7 +17,7 @@ class PerceptualLoss(nn.Module):
         # self.imageNet = resnet18(weights='IMAGENET1K_V1')
         self.normalize = Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
 
-        self.lpips = LPIPS(net='vgg').to(self.device).eval()
+        self.lpips = LPIPS(net='vgg').to(self.device)
         self.vggface = vggface
 
         # freeze image net
@@ -29,11 +29,17 @@ class PerceptualLoss(nn.Module):
         # self.arcface_weight = config["weights"]["perceptual"]["arcface"]
         self.vggface_weight = config["weights"]["perceptual"]["vggface"]
         self.lpips_weight = config["weights"]["perceptual"]["lpips"]
-        #self.imagenet_weight = config["weights"]["perceptual"]["imagenet"]
+        # self.imagenet_weight = config["weights"]["perceptual"]["imagenet"]
         self.imagenet_weight = config["weights"]["perceptual"]["lpips"]
         self.gaze_weight = config["weights"]["perceptual"]["gaze"]
 
     def forward(self, source, driver, pred):
+
+        pred_range = pred * 2 - 1
+        driver_range = driver * 2 - 1
+
+        # print("driver max:", driver_range.max().item(), "min:", driver_range.min().item(), "contains NaN:", torch.isnan(driver).any().item())
+        # print("pred max:", pred_range.max().item(), "min:", pred_range.min().item(), "contains NaN:", torch.isnan(pred).any().item())
 
         # ArcFace loss
         # pred_features = self.arcface(pred)
@@ -41,11 +47,13 @@ class PerceptualLoss(nn.Module):
         # Lface = F.l1_loss(pred_features, target_features)
         Lface_scaled = 0 #  Lface * self.arcface_weight
 
-        pred_features = self.vggface(pred)
-        target_features = self.vggface(driver)
+        pred_features = self.vggface(pred_range)
+        target_features = self.vggface(driver_range)
         vggface_loss = F.l1_loss(pred_features, target_features) * self.vggface_weight# Normalize over batch
 
-        lpips_loss = self.lpips(pred, driver).mean() * self.lpips_weight
+        lpips_ = self.lpips(pred_range, driver_range)
+        lpips_loss = lpips_.mean() * self.lpips_weight
+        # print("lpips max:", lpips_.max().item(), "min:", lpips_.min().item())
 
         # ImageNet ResNet-18 loss
         # pred_in = self.imageNet(self.normalize(pred))
