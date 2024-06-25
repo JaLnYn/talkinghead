@@ -141,6 +141,8 @@ class WarpingGenerator(nn.Module):
 
         # Compute rotation/translation warping
         # w_rt_c2d = compute_rt_warp(Rd, td, invert=False, grid_size=64)
+        zeros = torch.zeros((zd_sum.shape[0], 3))
+        w_rt_c2d = compute_rt_warp(zeros, zeros, invert=False, grid_size=64)
 
          # Resize w_em_c2d to match w_rt_c2d
         w_em_c2d_resized = F.interpolate(w_em_c2d, size=w_rt_c2d.shape[2:], mode='trilinear', align_corners=False)

@@ -55,7 +55,8 @@ class FaceDecoder(nn.Module):
         apply_ws = apply_warping_field(v_s, w_s)
         g_1 = self.g3d(apply_ws)
 
-        w_d = self.warping_module_d(e_s + z_d, r_d, t_d)
+        # w_d = self.warping_module_d(e_s + z_d, r_d, t_d)
+        w_d = self.warping_module_d(z_d, r_d, t_d)
 
         # apply_wd = torch.einsum("bdxyz,bwxyz->bdxyz", g_1, w_d)
         apply_wd = apply_warping_field(g_1, w_d)
