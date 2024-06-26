@@ -7,10 +7,10 @@ import tqdm
 from src.decoder.facedecoder import FaceDecoder
 from src.dataloader import VideoDataset, transform  # Import the dataset class and transformation
 from torch.utils.data import DataLoader
-from src.encoder.emocoder import get_trainable_emonet
+from src.encoder.emocoder import Emocoder
 from src.encoder.deep3dfacerecon import get_face_recon_model
 from src.encoder.arcface import get_model_arcface
-from src.encoder.eapp import get_eapp_model
+from src.encoder.eapp import Eapp
 from src.train.loss import PerceptualLoss, GANLoss, CycleConsistencyLoss
 from src.train.discriminator import MultiScalePatchDiscriminator
 from src.train.eye_tracking import get_gaze_model
@@ -25,15 +25,13 @@ class Portrait(nn.Module):
     def __init__(self, config):
         super(Portrait, self).__init__()
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
-
         self.config = config
 
         self.vggface = None #TODO
 
-        self.eapp = get_eapp_model()
+        self.eapp = Eapp ()
 
-        self.emodel = get_trainable_emonet()
+        self.emodel = Emocoder()
 
         self.decoder = FaceDecoder()
 
