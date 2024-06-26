@@ -1,9 +1,9 @@
 training:
   name: 'pruned'
   data_path: 'dataset/mp4'
-  learning_rate: 0.001
+  learning_rate: 0.01
   num_epochs: 10
-  batch_size: 2
+  batch_size: 12
 
 weights:
   vasa:
@@ -22,4 +22,4 @@ weights:
     gaze: 0
     vggface: 0.0
     lpips: 0.5
-  cycle: 0.0
+  cycle: 0.2
