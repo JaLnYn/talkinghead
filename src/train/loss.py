@@ -91,9 +91,9 @@ class PerceptualLoss(nn.Module):
 
 
 class GANLoss(nn.Module):
-    def __init__(self, config):
+    def __init__(self, config, discriminator):
         super(GANLoss, self).__init__()
-        self.discriminator = MultiScalePatchDiscriminator(input_channels=3)
+        self.discriminator = discriminator
         self.real_weight = config["weights"]["gan"]["real"] 
         self.fake_weight = config["weights"]["gan"]["fake"]
         self.adversarial_weight = config["weights"]["gan"]["adversarial"]

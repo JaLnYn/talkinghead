@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 import torch
 import torch.nn as nn
 import numpy as np
-from src.model import Portrait
+from src.model import Portrait, train_model
 import random
 
 
@@ -92,7 +92,7 @@ def main():
     video_dataset = load_data(root_dir='./dataset/mp4', transform=transform, batch_size=config["training"]["batch_size"])
     p = Portrait(config)
 
-    p.train_model(video_dataset)
+    train_model(config, p, video_dataset)
 
 
 if __name__ == '__main__':
