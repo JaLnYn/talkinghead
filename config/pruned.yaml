@@ -3,7 +3,7 @@ training:
   data_path: 'dataset/mp4'
   learning_rate: 0.001
   num_epochs: 10
-  batch_size: 12
+  batch_size: 2
 
 weights:
   vasa:
@@ -20,6 +20,6 @@ weights:
     arcface: 0
     imagenet: 0
     gaze: 0
-    vggface: 0.5
+    vggface: 0.0
     lpips: 0.5
   cycle: 0.0

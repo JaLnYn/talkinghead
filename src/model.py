@@ -25,6 +25,7 @@ class Portrait(nn.Module):
         super(Portrait, self).__init__()
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
+
         self.config = config
 
         self.vggface = None #TODO
@@ -97,6 +98,21 @@ class Portrait(nn.Module):
                 # loss = self.loss(Xs, Xd, Xsp, Xdp, gsd, gspd)
 
                 Lper = self.perceptual_loss(Xs, Xd, gsd)
+                print(Lper[1]['lpips'].item())
+
+                Xd_min = torch.min(Xd)
+                Xd_max = torch.max(Xd)
+                gsd_min = torch.min(gsd)
+                gsd_max = torch.max(gsd)
+                Xs_min = torch.min(Xs)
+                Xs_max = torch.max(Xs)
+                print("Min Xs:", Xs_min.item())
+                print("Max Xs:", Xs_max.item())
+                print("Min Xd:", Xd_min.item())
+                print("Max Xd:", Xd_max.item())
+                print("Min gsd:", gsd_min.item())
+                print("Max gsd:", gsd_max.item())
+                
                 Lgan = self.gan_loss(Xd, gsd)
                 Lcyc = self.cycle_loss(Xd, Xdp, gsd, gspd)
 

@@ -5,7 +5,8 @@ from torchvision.models import resnet18
 from facenet_pytorch import InceptionResnetV1
 from src.train.discriminator import MultiScalePatchDiscriminator
 from torchvision.transforms import Normalize
-from lpips import LPIPS
+
+import lpips
 
 class PerceptualLoss(nn.Module):
     def __init__(self, config, vggface, gaze_model=None):
@@ -17,7 +18,7 @@ class PerceptualLoss(nn.Module):
         # self.imageNet = resnet18(weights='IMAGENET1K_V1')
         self.normalize = Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
 
-        self.lpips = LPIPS(net='vgg').to(self.device)
+        self.lpips = lpips.LPIPS(net='vgg').to(self.device)
         self.vggface = vggface
 
         # freeze image net
@@ -32,11 +33,21 @@ class PerceptualLoss(nn.Module):
         # self.imagenet_weight = config["weights"]["perceptual"]["imagenet"]
         self.imagenet_weight = config["weights"]["perceptual"]["lpips"]
         self.gaze_weight = config["weights"]["perceptual"]["gaze"]
+        self.t = Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+
+        self.rand1 = torch.rand(1, 3, 224, 224).to(self.device)
+        self.rand1.requires_grad = False
+        self.rand2 = torch.rand(1, 3, 224, 224).to(self.device)
+        self.rand2.requires_grad = False 
 
     def forward(self, source, driver, pred):
 
         pred_range = pred * 2 - 1
         driver_range = driver * 2 - 1
+
+        lpips_loss = self.lpips(self.t(pred), self.t(driver)).mean() * self.lpips_weight
+        print("shouldn't change", self.lpips(self.rand1.detach(), self.rand2.detach()).mean().item())
+        # print("lpips max:", lpips_.max().item(), "min:", lpips_.min().item())
 
         # print("driver max:", driver_range.max().item(), "min:", driver_range.min().item(), "contains NaN:", torch.isnan(driver).any().item())
         # print("pred max:", pred_range.max().item(), "min:", pred_range.min().item(), "contains NaN:", torch.isnan(pred).any().item())
@@ -51,11 +62,7 @@ class PerceptualLoss(nn.Module):
         target_features = self.vggface(driver_range)
         vggface_loss = F.l1_loss(pred_features, target_features) * self.vggface_weight# Normalize over batch
 
-        lpips_ = self.lpips(self.normalize(pred), self.normalize(driver))
-        lpips_loss = lpips_.mean() * self.lpips_weight
-        # print("lpips max:", lpips_.max().item(), "min:", lpips_.min().item())
-
-        # ImageNet ResNet-18 loss
+               # ImageNet ResNet-18 loss
         # pred_in = self.imageNet(self.normalize(pred))
         # target_in = self.imageNet(self.normalize(driver))
         # Lin = F.l1_loss(pred_in, target_in)  # Normalize over batch
