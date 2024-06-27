@@ -15,6 +15,7 @@ from PIL import Image
 import numpy as np
 
 import torchvision.models as models
+from src.model.generator import StyleBased_Generator
 
 class Portrait(nn.Module):
     def __init__(self, config):
@@ -26,14 +27,21 @@ class Portrait(nn.Module):
         self.iden_encoder = models.resnet50(pretrained=False)
         self.emot_encoder = models.resnet50(pretrained=False)
 
-
+        self.generator = StyleBased_Generator()
 
 
     def forward(self, Xs, Xd):
+        batch_size = Xs.shape[0]
+        Ep = self.pose_encoder(Xs)
+        Ei = self.iden_encoder(Xs)
+        Ee = self.emot_encoder(Xs)
+
+        print(Ep.shape, Ei.shape, Ee.shape)
+        
+        print(Ep.shape, Ei.shape, Ee.shape)
+
+        generaator_input = torch.cat([Ep, Ei, Ee])
         return None
-
-
-
 
 if __name__ == '__main__':
 
