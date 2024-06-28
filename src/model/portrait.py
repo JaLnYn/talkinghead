@@ -65,6 +65,17 @@ class Portrait(nn.Module):
         Y = self.generator(torch.cat([Eis, generator_input], dim=1), 0.5, 6, zero_noise)
 
         return Y
+    
+    def save_model(self, path, epoch, optimizer):
+        if not os.path.exists(path):
+            os.makedirs(path)
+        model_state = {
+            'epoch': epoch,
+            'model_state_dict': self.state_dict(),
+            'optimizer_state_dict': optimizer.state_dict()
+        }
+        torch.save(self.state_dict(), path + "portrait.pth")
+        torch.save(model_state, os.path.join(path, "checkpoint.pth"))
 
 if __name__ == '__main__':
     torch.backends.cudnn.deterministic = True
