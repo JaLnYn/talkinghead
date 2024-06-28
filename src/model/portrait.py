@@ -37,7 +37,7 @@ class Portrait(nn.Module):
 
         self.resize = nn.Linear(1024, 512)
 
-        self.generator = Generator(1024, 1024, 1024)
+        self.generator = Generator(1024, 512, 512)
 
         self.to(self.device)
 
@@ -98,6 +98,7 @@ if __name__ == '__main__':
     # Forward pass to get initial outputs
     assert torch.allclose(input_data_clone, input_data_backup, atol=1e-6), "Input data differs"
     output = model(input_data_clone, input_data_clone, zero_noise=True)
+    print(max(output.flatten()), min(output.flatten()))
     discrim_out = model.discriminator(output)
     loss = output.mean() + discrim_out[0][0].mean()
     loss.backward()

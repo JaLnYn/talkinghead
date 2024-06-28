@@ -171,4 +171,4 @@ class Generator(nn.Module):
         end = start + self.center_size
 
         # Perform center crop
-        return ret[:, :, start:end, start:end]
+        return (ret[:, :, start:end, start:end]+1)/2
