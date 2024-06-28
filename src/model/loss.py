@@ -20,11 +20,10 @@ class PerceptualLoss(nn.Module):
 
         self.lpips_weight = config["weights"]["perceptual"]["lpips"]
 
-        self.t = Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
 
     def forward(self, driver, pred):
 
-        lpips_loss = self.lpips(self.t(pred), self.t(driver)).mean() * self.lpips_weight
+        lpips_loss = self.lpips(self.normalize(pred), self.normalize(driver)).mean() * self.lpips_weight
 
         # Return individual losses along with the total
         total_loss = lpips_loss

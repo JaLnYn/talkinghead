@@ -4,7 +4,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 class PatchDiscriminator(nn.Module):
-    def __init__(self, input_channels, num_filters=64, final_input_size=128):
+    def __init__(self, input_channels, num_filters=64):
         super(PatchDiscriminator, self).__init__()
         self.conv1 = nn.Conv2d(input_channels, num_filters, kernel_size=4, stride=2, padding=1)
         self.bn1 = nn.BatchNorm2d(num_filters)
@@ -30,9 +30,9 @@ class PatchDiscriminator(nn.Module):
 class MultiScalePatchDiscriminator(nn.Module):
     def __init__(self, input_channels=3, num_filters=64):
         super(MultiScalePatchDiscriminator, self).__init__()
-        self.scale1_discriminator = PatchDiscriminator(input_channels, num_filters, 676)
-        self.scale2_discriminator = PatchDiscriminator(input_channels, num_filters, 144)
-        self.scale3_discriminator = PatchDiscriminator(input_channels, num_filters, 25)
+        self.scale1_discriminator = PatchDiscriminator(input_channels, num_filters)
+        self.scale2_discriminator = PatchDiscriminator(input_channels, num_filters)
+        self.scale3_discriminator = PatchDiscriminator(input_channels, num_filters)
         
     def forward(self, x):
         # Downsample images for different scales
