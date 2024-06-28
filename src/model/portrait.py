@@ -9,13 +9,12 @@ from torch.utils.data import DataLoader
 
 import torch
 import torch.nn as nn
-from facenet_pytorch import InceptionResnetV1
 
-from PIL import Image
-import numpy as np
+
 
 import torchvision.models as models
 from src.model.generator import Generator
+from src.model.discriminator import MultiScalePatchDiscriminator
 
 class Portrait(nn.Module):
     def __init__(self, config):
@@ -24,6 +23,8 @@ class Portrait(nn.Module):
         self.config = config
 
         self.center_size = 224
+
+        self.discriminator = MultiScalePatchDiscriminator()
 
         self.pose_encoder = models.resnet50()
         self.pose_encoder.fc = nn.Linear(2048, 512)
@@ -41,20 +42,29 @@ class Portrait(nn.Module):
         self.to(self.device)
 
 
-    def forward(self, Xs, Xd, zero_noise=False):
-        batch_size = Xs.shape[0]
-        Ep = self.pose_encoder(Xs)
-        Ei = self.iden_encoder(Xs)
-        Ee = self.emot_encoder(Xs)
+    def encode(self, X):
+        Ei = self.iden_encoder(X)
+        Ep = self.pose_encoder(X)
+        Ee = self.emot_encoder(X)
+        return Ei, Ep, Ee
 
+    def decode(self, Ei, Ep, Ee, zero_noise=False):
         generator_input = self.resize(torch.cat([Ep,Ee], dim=1))
         Y = self.generator(torch.cat([Ei, generator_input], dim=1), 0.5, 6, zero_noise)
+        return Y
 
-        start = (Y.shape[2] - self.center_size) // 2
-        end = start + self.center_size
+    def discriminator_forward(self, X):
+        return self.discriminator(X)
 
-        # Perform center crop
-        return Y[:, :, start:end, start:end]
+    def forward(self, Xs, Xd, zero_noise=False):
+        Eis = self.iden_encoder(Xs)
+        Epd = self.pose_encoder(Xd)
+        Eed = self.emot_encoder(Xd)
+
+        generator_input = self.resize(torch.cat([Epd,Eed], dim=1))
+        Y = self.generator(torch.cat([Eis, generator_input], dim=1), 0.5, 6, zero_noise)
+
+        return Y
 
 if __name__ == '__main__':
     torch.backends.cudnn.deterministic = True
@@ -77,13 +87,15 @@ if __name__ == '__main__':
     # Forward pass to get initial outputs
     assert torch.allclose(input_data_clone, input_data_backup, atol=1e-6), "Input data differs"
     output = model(input_data_clone, input_data_clone, zero_noise=True)
-    loss = output.mean()
+    discrim_out = model.discriminator(output)
+    loss = output.mean() + discrim_out[0][0].mean()
     loss.backward()
     optimizer.step()  # Update weights with backpropagation
 
     # Get encoder outputs after training
     trained_pose, trained_iden, trained_emot = model.pose_encoder(input_data_clone), model.iden_encoder(input_data_clone), model.emot_encoder(input_data_clone)
     trained_output = model(input_data_clone, input_data_clone, zero_noise=True)
+    trained_discrim_out = model.discriminator_forward(trained_output)
 
     # Save model
     saved_state_dict = model.state_dict()
@@ -95,22 +107,19 @@ if __name__ == '__main__':
     # test unloaded  
     assert torch.allclose(input_data_clone, input_data_backup, atol=1e-6), "Input data differs"
     loaded_output = model_loaded(input_data_clone, input_data_clone, zero_noise=True)
+    discrim_out_loaded = model_loaded.discriminator_forward(output)
     loaded_pose, loaded_iden, loaded_emot = model_loaded.pose_encoder(input_data_clone), model_loaded.iden_encoder(input_data_clone), model_loaded.emot_encoder(input_data_clone)
+    assert not torch.allclose(trained_discrim_out[0][0], discrim_out_loaded[0][0], atol=1e-6), "Full model outputs same before load."
+    assert not torch.allclose(trained_discrim_out[1][2][2], discrim_out_loaded[1][2][2], atol=1e-6), "Full model outputs same before load."
     assert not torch.allclose(loaded_output, trained_output, atol=1e-6), "Full model outputs same before load."
     assert not torch.allclose(trained_pose, loaded_pose, atol=1e-6), "Pose encoder outputs same before load."
     assert not torch.allclose(trained_iden, loaded_iden, atol=1e-6), "Identity encoder outputs same before load."
     assert not torch.allclose(trained_emot, loaded_emot, atol=1e-6), "Emotion encoder outputs same before load."
-    del loaded_output, loaded_pose, loaded_iden, loaded_emot    
+    del loaded_output, loaded_pose, loaded_iden, loaded_emot, discrim_out_loaded
 
 
     loaded_state_dict = torch.load('portrait_model.pth')
     model_loaded.load_state_dict(loaded_state_dict)
-
-    # noise = torch.randn(1, 1024).to('cuda')  # Replace z_dim with actual dimension
-    # output1 = model.generator(noise, alpha=0.5, steps=1, zero_noise = True )  # Adjust parameters as necessary
-    # output2 = model_loaded.generator(noise, alpha=0.5, steps=1, zero_noise = True)
-    # assert torch.allclose(output1, output2, atol=1e-6), "Outputs are not close enough"
-
 
     saved_keys = set(saved_state_dict.keys())
     loaded_keys = set(loaded_state_dict.keys())
@@ -120,11 +129,11 @@ if __name__ == '__main__':
     assert torch.allclose(input_data_clone, input_data_backup, atol=1e-6), "Input data differs"
     loaded_output = model_loaded(input_data_clone, input_data_clone, zero_noise=True)
     loaded_pose, loaded_iden, loaded_emot = model_loaded.pose_encoder(input_data_clone), model_loaded.iden_encoder(input_data_clone), model_loaded.emot_encoder(input_data_clone)
+    discrim_out_loaded = model_loaded.discriminator_forward(loaded_output)
 
     # Compare encoder outputs
-    print(torch.mean(loaded_output - trained_output))
-    print(torch.max(loaded_output - trained_output))
-    print(torch.min(loaded_output - trained_output))
+    assert torch.allclose(trained_discrim_out[0][0], discrim_out_loaded[0][0], atol=1e-6), "Full model outputs differ after load."
+    assert torch.allclose(trained_discrim_out[1][2][2], discrim_out_loaded[1][2][2], atol=1e-6), "Full model outputs differ after load."
     assert torch.allclose(loaded_output, trained_output, atol=1e-6), "Full model outputs differ after load."
     assert torch.allclose(trained_pose, loaded_pose, atol=1e-6), "Pose encoder outputs differ after load."
     assert torch.allclose(trained_iden, loaded_iden, atol=1e-6), "Identity encoder outputs differ after load."

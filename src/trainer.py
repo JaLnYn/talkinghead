@@ -3,12 +3,18 @@ import yaml
 
 from torch.utils.data import DataLoader
 from src.dataloader import VideoDataset, transform  # Import the dataset class and transformation
+from src.model.loss import PerceptualLoss, GANLoss, CycleConsistencyLoss
 import matplotlib.pyplot as plt
 import torch
 import torch.nn as nn
 import numpy as np
 import random
 import wandb
+import tqdm
+import os
+
+from src.model.portrait import Portrait
+
 
 def collate_frames(batch):
     """
@@ -96,9 +102,8 @@ def train_model(config, p, train_loader):
             optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
             start_epoch = checkpoint['epoch'] + 1  # Start from next epoch
 
-    perceptual_loss = PerceptualLoss(config, vggface=p.vggface)
+    perceptual_loss = PerceptualLoss(config)
     gan_loss = GANLoss(config, discriminator=p.discriminator)
-    cycle_loss = CycleConsistencyLoss(config, emodel=p.emodel)
 
     for epoch in range(start_epoch, num_epochs):
         running_loss = 0
@@ -122,23 +127,16 @@ def train_model(config, p, train_loader):
 
             optimizer.zero_grad()
 
-            gsd, (v_s, e_s, r_s, t_s, z_s), (v_d, e_d, r_d, t_d, z_d) = p(Xs, Xd, return_components=True)
-            gspd, (v_sp, e_sp, r_sp, t_sp, z_sp), (v_d1, e_d1, r_d1, t_d1, z_d1) = p(Xsp, Xd, return_components=True)
+            Eis, Ees, Eps = p.encode(Xs)
+            # Epd, Eid, Eed = p.encode(Xd, return_components=True)
+            gsd = p.decode(Eis, Ees, Eps, zero_noise=False)
 
-            # construct vasa loss
-            # giiij = p.decoder((v_s, e_s, r_s, t_s, z_s), (None, None, r_s, t_s, z_d))
-            # gjjij = p.decoder((v_d, e_d, r_d, t_d, z_d), (None, None, r_s, t_s, z_d))
-            # gsmod = p.decoder((v_sp, e_sp, r_sp, t_sp, z_sp), (None, None, r_d, t_d, z_d))
-
-            # loss = p.loss(Xs, Xd, Xsp, Xdp, gsd, gspd)
-
-            Lper = perceptual_loss(Xs, Xd, gsd)
+            Lper = perceptual_loss(Xd, gsd)
             Lgan = gan_loss(Xd, gsd)
-            Lcyc = cycle_loss(Xd, Xdp, gsd, gspd)
 
             # Lvasa = self.v1loss(giiij, gjjij, gsd, gsmod)
 
-            total_loss = Lper[0] + Lcyc + Lgan[0]  # + Lvasa[0]
+            total_loss = Lper[0] + Lgan[0] 
 
             running_loss += total_loss.item()
 
@@ -148,17 +146,9 @@ def train_model(config, p, train_loader):
             if step % log_interval == 0:
                 wandb.log({
                     'Example Source': wandb.Image(Xs[0].cpu().detach().numpy().transpose(1, 2, 0)),
-                    'Example Source Prime': wandb.Image(Xsp[0].cpu().detach().numpy().transpose(1, 2, 0)),
                     'Example Driver': wandb.Image(Xd[0].cpu().detach().numpy().transpose(1, 2, 0)),
                     'Example Output': wandb.Image(gsd[0].cpu().detach().numpy().transpose(1, 2, 0)),
-                    'Example Output SPD': wandb.Image(gspd[0].cpu().detach().numpy().transpose(1, 2, 0)),
                 })
-
-            # if step % 5 == 0:
-            #    if step % 20 == 0:
-            #        print(f"Step {step}, {gsd[0].cpu().detach().numpy().transpose(1, 2, 0)}")
-            #    Image.fromarray(np.uint8((Xs[0]*256).cpu().detach().numpy().transpose(1, 2, 0))).save(f"./test/Xs{step}.png")
-            #    Image.fromarray(np.uint8((gsd[0]*256).cpu().detach().numpy().transpose(1, 2, 0))).save(f"./test/Xsd{step}.png")
 
             wandb_log = {
                 'Epoch': epoch + 1,
@@ -167,12 +157,6 @@ def train_model(config, p, train_loader):
 
             # if self.config['weights']['perceptual']['gaze'] != 0:
             #     wandb_log['Gaze Loss'] = Lper[1]['Lgaze'].item()
-            if p.config['weights']['perceptual']['imagenet'] != 0:
-                wandb_log['ImageNet Loss'] = Lper[1]['Lin'].item()
-            if p.config['weights']['perceptual']['arcface'] != 0:
-                wandb_log['Face Loss'] = Lper[1]['Lface'].item()
-            if p.config['weights']['perceptual']['vggface'] != 0:
-                wandb_log['VggFace Loss'] = Lper[1]['vggface'].item()
             if p.config['weights']['perceptual']['lpips'] != 0:
                 wandb_log['lpips Loss'] = Lper[1]['lpips'].item()
             if p.config['weights']['gan']['real'] + p.config['weights']['gan']['fake'] + p.config['weights']['gan'][
@@ -186,16 +170,6 @@ def train_model(config, p, train_loader):
                 wandb_log['GAN adversarial Loss'] = Lgan[1]['adversarial_loss'].item()
             if p.config['weights']['gan']['feature_matching'] != 0:
                 wandb_log['Gan feature Loss'] = Lgan[1]['feature_matching_loss'].item()
-            if p.config['weights']['cycle'] != 0:
-                wandb_log['Cycle Loss'] = Lcyc.item()
-            # if p.config['weights']['vasa']['arcface'] != 0:
-            #     wandb_log['ArcFace Loss'] = Lvasa[1]['arcloss'].item()
-            # if p.config['weights']['vasa']['face3d'] != 0:
-            #     wandb_log['Face3D Loss'] = Lvasa[1]['rotationloss'].item()
-            # if p.config['weights']['vasa']['emodel'] != 0:
-            #     wandb_log['EModel Loss'] = Lvasa[1]['cosloss'].item()
-            # if p.config['weights']['vasa']['gaze'] != 0:
-            #     wandb_log['Second Gaze Loss'] = Lvasa[1]['gazeloss'].item()
 
             wandb.log(wandb_log)
 

@@ -123,6 +123,8 @@ class Generator(nn.Module):
         self.initial_conv = nn.Conv2d(in_channels, in_channels, kernel_size=3, stride=1, padding=1)
         self.leaky = nn.LeakyReLU(0.2, inplace=True)
 
+        self.center_size = 224
+
         self.initial_rgb = WSConv2d(
             in_channels, img_channels, kernel_size=1, stride=1, padding=0
         )
@@ -164,4 +166,9 @@ class Generator(nn.Module):
         # (steps-1) and steps for upscaled, out respectively
         final_upscaled = self.rgb_layers[steps - 1](upscaled)
         final_out = self.rgb_layers[steps](out)
-        return self.fade_in(alpha, final_upscaled, final_out)
+        ret = self.fade_in(alpha, final_upscaled, final_out)
+        start = (ret.shape[2] - self.center_size) // 2
+        end = start + self.center_size
+
+        # Perform center crop
+        return ret[:, :, start:end, start:end]

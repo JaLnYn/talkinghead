@@ -1,9 +1,9 @@
 training:
-  name: 'local_train'
+  name: 'cloud_train'
   data_path: 'dataset/mp4'
-  learning_rate: 0.01
+  learning_rate: 0.001
   num_epochs: 10
-  batch_size: 2
+  batch_size: 12
 
 weights:
   gan:

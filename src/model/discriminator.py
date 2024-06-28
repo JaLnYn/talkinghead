@@ -28,7 +28,7 @@ class PatchDiscriminator(nn.Module):
 
 
 class MultiScalePatchDiscriminator(nn.Module):
-    def __init__(self, input_channels, num_filters=64):
+    def __init__(self, input_channels=3, num_filters=64):
         super(MultiScalePatchDiscriminator, self).__init__()
         self.scale1_discriminator = PatchDiscriminator(input_channels, num_filters, 676)
         self.scale2_discriminator = PatchDiscriminator(input_channels, num_filters, 144)
