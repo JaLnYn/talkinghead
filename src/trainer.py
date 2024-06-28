@@ -129,10 +129,10 @@ def train_model(config, p, train_loader):
 
             Eis, Ees, Eps = p.encode(Xs)
             # Epd, Eid, Eed = p.encode(Xd, return_components=True)
-            gsd = p.decode(Eis, Ees, Eps, zero_noise=False)
+            gs = p.decode(Eis, Ees, Eps, zero_noise=False)
 
-            Lper = perceptual_loss(Xd, gsd)
-            Lgan = gan_loss(Xd, gsd)
+            Lper = perceptual_loss(Xs, gs)
+            Lgan = gan_loss(Xd, gs)
 
             # Lvasa = self.v1loss(giiij, gjjij, gsd, gsmod)
 
@@ -147,7 +147,7 @@ def train_model(config, p, train_loader):
                 wandb.log({
                     'Example Source': wandb.Image(Xs[0].cpu().detach().numpy().transpose(1, 2, 0)),
                     'Example Driver': wandb.Image(Xd[0].cpu().detach().numpy().transpose(1, 2, 0)),
-                    'Example Output': wandb.Image(gsd[0].cpu().detach().numpy().transpose(1, 2, 0)),
+                    'Example Output': wandb.Image(gs[0].cpu().detach().numpy().transpose(1, 2, 0)),
                 })
 
             wandb_log = {
