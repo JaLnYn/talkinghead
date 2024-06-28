@@ -88,7 +88,7 @@ def train_model(config, p, train_loader):
     wandb.init(project='portrait_project', resume="allow")
 
     checkpoint_path = f"./models/portrait/{p.config['training']['name']}/"
-    num_epochs = p.config["training"]["num_epochs"]
+    num_epochs = config["training"]["num_epochs"]
 
     start_epoch = 0
 
@@ -103,7 +103,8 @@ def train_model(config, p, train_loader):
             start_epoch = checkpoint['epoch'] + 1  # Start from next epoch
 
     perceptual_loss = PerceptualLoss(config)
-    gan_loss = GANLoss(config)
+    gan_loss = GANLoss(config, discriminator=p.discriminator)
+    p.train()
 
     for epoch in range(start_epoch, num_epochs):
         running_loss = 0
@@ -129,10 +130,10 @@ def train_model(config, p, train_loader):
 
             Eid, Eed, Epd = p.encode(Xd)
             # Epd, Eid, Eed = p.encode(Xd, return_components=True)
-            gd = p.decode(Eid, Eed, Epd)
+            gd = p.decode(Eid, Eed, Epd, alpha=(epoch + 1)/ num_epochs)
 
             Lper = perceptual_loss(Xd, gd)
-            Lgan = gan_loss(Xd, gd, p)
+            Lgan = gan_loss(Xd, gd)
 
             # Lvasa = self.v1loss(giiij, gjjij, gsd, gsmod)
 

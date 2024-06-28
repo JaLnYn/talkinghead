@@ -12,4 +12,4 @@ weights:
     feature_matching: 0.2
     adversarial: 0.2
   perceptual:
-    lpips: 0.5
+    lpips: 1.0

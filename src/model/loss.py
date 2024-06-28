@@ -33,18 +33,19 @@ class PerceptualLoss(nn.Module):
 
 
 class GANLoss(nn.Module):
-    def __init__(self, config):
+    def __init__(self, config, discriminator):
         super(GANLoss, self).__init__()
+        self.discriminator = discriminator
         self.real_weight = config["weights"]["gan"]["real"] 
         self.fake_weight = config["weights"]["gan"]["fake"]
         self.adversarial_weight = config["weights"]["gan"]["adversarial"]
         self.feature_matching_weight = config["weights"]["gan"]["feature_matching"]
 
-    def forward(self, real, fake, model):
+    def forward(self, real, fake):
         # Get discriminator outputs and features for both real and fake images
-        real_outputs, real_features = model.discriminator_forward(real)
-        fake_outputs, fake_features = model.discriminator_forward(fake)
-        faked_outputs, _ = model.discriminator_forward(fake.detach())
+        real_outputs, real_features = self.discriminator(real)
+        fake_outputs, fake_features = self.discriminator(fake)
+        faked_outputs, _ = self.discriminator(fake.detach())
 
         # Compute hinge loss for real and fake images
         real_loss = 0
