@@ -103,7 +103,7 @@ def train_model(config, p, train_loader):
             start_epoch = checkpoint['epoch'] + 1  # Start from next epoch
 
     perceptual_loss = PerceptualLoss(config)
-    gan_loss = GANLoss(config, discriminator=p.discriminator)
+    gan_loss = GANLoss(config)
 
     for epoch in range(start_epoch, num_epochs):
         running_loss = 0
@@ -129,10 +129,10 @@ def train_model(config, p, train_loader):
 
             Eid, Eed, Epd = p.encode(Xd)
             # Epd, Eid, Eed = p.encode(Xd, return_components=True)
-            gd = p.decode(Eid, Eed, Epd, zero_noise=False)
+            gd = p.decode(Eid, Eed, Epd)
 
             Lper = perceptual_loss(Xd, gd)
-            Lgan = gan_loss(Xd, gd)
+            Lgan = gan_loss(Xd, gd, p)
 
             # Lvasa = self.v1loss(giiij, gjjij, gsd, gsmod)
 
