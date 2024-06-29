@@ -45,16 +45,16 @@ class GANLoss(nn.Module):
         self.adversarial_weight = config["weights"]["gan"]["adversarial"]
         self.feature_matching_weight = config["weights"]["gan"]["feature_matching"]
 
-    def forward(self, real, fake):
+    def forward(self, real, fake, alpha, steps):
         if real.size() != fake.size():
             # Downsample driver to the size of pred
             # Assuming pred and driver are 4D tensors [batch, channels, height, width]
             real = F.interpolate(real, size=(fake.size(2), fake.size(3)), mode='area')
 
         # Get discriminator outputs and features for both real and fake images
-        real_outputs, real_features = self.discriminator(real)
-        fake_outputs, fake_features = self.discriminator(fake)
-        faked_outputs, _ = self.discriminator(fake.detach())
+        real_outputs = self.discriminator(real, alpha, steps)
+        fake_outputs = self.discriminator(fake, alpha, steps)
+        faked_outputs = self.discriminator(fake.detach(), alpha, steps)
 
         # Compute hinge loss for real and fake images
         real_loss = 0
@@ -71,23 +71,23 @@ class GANLoss(nn.Module):
         real_loss = real_loss * self.real_weight
         fake_loss = fake_loss * self.fake_weight    
 
-        # Compute feature matching loss
-        feature_matching_loss = 0
-        # Iterate over each scale
-        for scale_real_feats, scale_fake_feats in zip(real_features, fake_features):
-            # For each scale, iterate over each feature map
-            for real_feat, fake_feat in zip(scale_real_feats, scale_fake_feats):
-                # Calculate L1 loss between corresponding features from real and fake images
-                feature_matching_loss = feature_matching_loss + F.l1_loss(real_feat.detach(), fake_feat)
+        # # Compute feature matching loss
+        # feature_matching_loss = 0
+        # # Iterate over each scale
+        # for scale_real_feats, scale_fake_feats in zip(real_features, fake_features):
+        #     # For each scale, iterate over each feature map
+        #     for real_feat, fake_feat in zip(scale_real_feats, scale_fake_feats):
+        #         # Calculate L1 loss between corresponding features from real and fake images
+        #         feature_matching_loss = feature_matching_loss + F.l1_loss(real_feat.detach(), fake_feat)
 
-        feature_matching_loss = feature_matching_loss * self.feature_matching_weight
+        # feature_matching_loss = feature_matching_loss * self.feature_matching_weight
 
         # Normalize losses by number of scales and sum real and fake hinge losses
-        total_loss = (real_loss + fake_loss + adversarial_loss) / len(real_outputs) + feature_matching_loss / sum(len(feats) for feats in real_features)
+        total_loss = (real_loss + fake_loss + adversarial_loss) / len(real_outputs)
         return total_loss,{
             'real_loss': real_loss,
             'fake_loss': fake_loss,
-            'feature_matching_loss': feature_matching_loss,
+            # 'feature_matching_loss': feature_matching_loss,
             'adversarial_loss': adversarial_loss
         }
     

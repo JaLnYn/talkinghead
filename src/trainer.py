@@ -134,10 +134,10 @@ def train_model(config, p, train_loader):
             optimizer.zero_grad()
 
             Eid, Eed, Epd = p.encode(Xd)
-            gd = p.decode(Eid, Eed, Epd, percentage_complete, max(6, min(6, epoch + 1)))
+            gd = p.decode(Eid, Eed, Epd, percentage_complete, max(2, min(6, epoch + 1)))
 
             Lper = perceptual_loss(Xd, gd)
-            Lgan = gan_loss(Xd, gd)
+            Lgan = gan_loss(Xd, gd, percentage_complete, max(2, min(6, epoch + 1)))
 
 
             total_loss = Lper[0] + Lgan[0] 
@@ -172,8 +172,8 @@ def train_model(config, p, train_loader):
                 wandb_log['GAN fake Loss'] = Lgan[1]['fake_loss'].item()
             if p.config['weights']['gan']['adversarial'] != 0:
                 wandb_log['GAN adversarial Loss'] = Lgan[1]['adversarial_loss'].item()
-            if p.config['weights']['gan']['feature_matching'] != 0:
-                wandb_log['Gan feature Loss'] = Lgan[1]['feature_matching_loss'].item()
+            # if p.config['weights']['gan']['feature_matching'] != 0:
+            #     wandb_log['Gan feature Loss'] = Lgan[1]['feature_matching_loss'].item()
 
             wandb.log(wandb_log)
 

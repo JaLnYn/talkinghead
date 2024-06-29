@@ -13,8 +13,8 @@ import torch.nn as nn
 
 
 import torchvision.models as models
-from src.model.generator import Generator
-from src.model.discriminator import MultiScalePatchDiscriminator
+from src.model.generator import Generator, Discriminator
+# from src.model.discriminator import MultiScalePatchDiscriminator
 
 class Portrait(nn.Module):
     def __init__(self, config):
@@ -24,7 +24,7 @@ class Portrait(nn.Module):
 
         self.center_size = 224
 
-        self.discriminator = MultiScalePatchDiscriminator()
+        self.discriminator = Discriminator(512)
 
         self.pose_encoder = models.resnet50()
         self.pose_encoder.fc = nn.Linear(2048, 512)
