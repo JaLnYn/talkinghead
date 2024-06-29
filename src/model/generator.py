@@ -112,10 +112,9 @@ class GenBlock(nn.Module):
 
 
 class Generator(nn.Module):
-    def __init__(self, z_dim, w_dim, in_channels, img_channels=3):
+    def __init__(self, w_dim, in_channels, img_channels=3):
         super(Generator, self).__init__()
         self.starting_constant = nn.Parameter(torch.ones((1, in_channels, 4, 4)))
-        self.map = MappingNetwork(z_dim, w_dim)
         self.initial_adain1 = AdaIN(in_channels, w_dim)
         self.initial_adain2 = AdaIN(in_channels, w_dim)
         self.initial_noise1 = InjectNoise(in_channels)
@@ -147,8 +146,7 @@ class Generator(nn.Module):
         # alpha should be scalar within [0, 1], and upscale.shape == generated.shape
         return torch.tanh(alpha * generated + (1 - alpha) * upscaled)
 
-    def forward(self, noise, alpha, steps, zero_noise=False):
-        w = self.map(noise)
+    def forward(self, w, alpha, steps, zero_noise=False):
         x = self.initial_adain1(self.initial_noise1(self.starting_constant, zero_noise), w)
         x = self.initial_conv(x)
         out = self.initial_adain2(self.leaky(self.initial_noise2(x, zero_noise)), w)

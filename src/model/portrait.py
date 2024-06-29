@@ -37,7 +37,7 @@ class Portrait(nn.Module):
 
         self.resize = nn.Linear(1024, 512)
 
-        self.generator = Generator(1024, 512, 512)
+        self.generator = Generator(1024, 512)
 
         self.to(self.device)
 

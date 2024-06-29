@@ -1,5 +1,5 @@
 training:
-  name: 'gans_gen'
+  name: 'gans_gen_test_2'
   data_path: 'dataset/mp4'
   learning_rate: 0.001
   num_epochs: 10
