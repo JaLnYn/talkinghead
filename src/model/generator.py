@@ -168,5 +168,6 @@ class Generator(nn.Module):
         start = (ret.shape[2] - self.center_size) // 2
         end = start + self.center_size
 
-        # Perform center crop
-        return (ret[:, :, start:end, start:end]+1)/2
+        if ret.shape[2] > self.center_size:
+            return (ret[:, :, start:end, start:end]+1)/2
+        return ret + 1 /2

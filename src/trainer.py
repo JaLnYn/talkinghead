@@ -85,7 +85,7 @@ def train_model(config, p, train_loader):
     optimizer = torch.optim.Adam(p.parameters(), lr=p.config["training"]["learning_rate"])
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     p.to(device)
-    wandb.init(project='portrait_project', resume="allow")
+    wandb.init(project='portrait_project', resume="allow", config=config)
 
     checkpoint_path = f"./models/portrait/{p.config['training']['name']}/"
     num_epochs = config["training"]["num_epochs"]
@@ -106,13 +106,15 @@ def train_model(config, p, train_loader):
     gan_loss = GANLoss(config, discriminator=p.discriminator)
     p.train()
 
+    total_batches = len(train_loader)
     for epoch in range(start_epoch, num_epochs):
         running_loss = 0
 
         # Wrap the training loader with tqdm for a progress bar
         train_iterator = tqdm.tqdm(train_loader, desc=f"Epoch {epoch + 1}/{num_epochs}", total=len(train_loader))
-        log_interval = 10  # len(train_loader) // 20
+        log_interval = len(train_loader) // 20
         step = 0
+        total_batches = len(train_loader)
         for batch_idx, (Xs, Xd, Xsp, Xdp) in enumerate(train_iterator):
             # Calculate the percentage completion for the current batch
             percentage_complete = (batch_idx + 1) / total_batches
@@ -132,7 +134,7 @@ def train_model(config, p, train_loader):
             optimizer.zero_grad()
 
             Eid, Eed, Epd = p.encode(Xd)
-            gd = p.decode(Eid, Eed, Epd, percentage_complete, min(6,epoch))
+            gd = p.decode(Eid, Eed, Epd, percentage_complete, max(6, min(6, epoch + 1)))
 
             Lper = perceptual_loss(Xd, gd)
             Lgan = gan_loss(Xd, gd)

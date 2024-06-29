@@ -22,6 +22,10 @@ class PerceptualLoss(nn.Module):
 
 
     def forward(self, driver, pred):
+        if driver.size() != pred.size():
+            # Downsample driver to the size of pred
+            # Assuming pred and driver are 4D tensors [batch, channels, height, width]
+            driver = F.interpolate(driver, size=(pred.size(2), pred.size(3)), mode='area')
 
         lpips_loss = self.lpips(self.normalize(pred), self.normalize(driver)).mean() * self.lpips_weight
 
@@ -42,6 +46,11 @@ class GANLoss(nn.Module):
         self.feature_matching_weight = config["weights"]["gan"]["feature_matching"]
 
     def forward(self, real, fake):
+        if real.size() != fake.size():
+            # Downsample driver to the size of pred
+            # Assuming pred and driver are 4D tensors [batch, channels, height, width]
+            real = F.interpolate(real, size=(fake.size(2), fake.size(3)), mode='area')
+
         # Get discriminator outputs and features for both real and fake images
         real_outputs, real_features = self.discriminator(real)
         fake_outputs, fake_features = self.discriminator(fake)
