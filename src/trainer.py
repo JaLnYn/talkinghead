@@ -113,7 +113,10 @@ def train_model(config, p, train_loader):
         train_iterator = tqdm.tqdm(train_loader, desc=f"Epoch {epoch + 1}/{num_epochs}", total=len(train_loader))
         log_interval = 10  # len(train_loader) // 20
         step = 0
-        for Xs, Xd, Xsp, Xdp in train_iterator:
+        for batch_idx, (Xs, Xd, Xsp, Xdp) in enumerate(train_iterator):
+            # Calculate the percentage completion for the current batch
+            percentage_complete = (batch_idx + 1) / total_batches
+
             min_batch_size = min(Xs.size(0), Xd.size(0), Xsp.size(0), Xdp.size(0))
 
             # Check if the minimum batch size is zero
@@ -129,7 +132,7 @@ def train_model(config, p, train_loader):
             optimizer.zero_grad()
 
             Eid, Eed, Epd = p.encode(Xd)
-            gd = p.decode(Eid, Eed, Epd, alpha=(epoch + 1)/ num_epochs)
+            gd = p.decode(Eid, Eed, Epd, percentage_complete, min(6,epoch))
 
             Lper = perceptual_loss(Xd, gd)
             Lgan = gan_loss(Xd, gd)
