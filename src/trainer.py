@@ -112,7 +112,7 @@ def train_model(config, p, train_loader):
 
         # Wrap the training loader with tqdm for a progress bar
         train_iterator = tqdm.tqdm(train_loader, desc=f"Epoch {epoch + 1}/{num_epochs}", total=len(train_loader))
-        log_interval = len(train_loader) // 20
+        log_interval = len(train_loader) // 5
         step = 0
         total_batches = len(train_loader)
         for batch_idx, (Xs, Xd, Xsp, Xdp) in enumerate(train_iterator):
@@ -134,10 +134,17 @@ def train_model(config, p, train_loader):
             optimizer.zero_grad()
 
             Eid, Eed, Epd = p.encode(Xd)
-            gd = p.decode(Eid, Eed, Epd, percentage_complete, max(2, min(6, epoch + 1)))
+
+            steps = max(2, min(6, epoch + 1))
+
+            if epoch+1 >= 6:
+                steps = 6
+                percentage_complete = 1.0
+
+            gd = p.decode(Eid, Eed, Epd, percentage_complete, steps)
 
             Lper = perceptual_loss(Xd, gd)
-            Lgan = gan_loss(Xd, gd, percentage_complete, max(2, min(6, epoch + 1)))
+            Lgan = gan_loss(Xd, gd, percentage_complete, steps)
 
 
             total_loss = Lper[0] + Lgan[0] 

@@ -22,10 +22,8 @@ class PerceptualLoss(nn.Module):
 
 
     def forward(self, driver, pred):
-        if driver.size() != pred.size():
-            # Downsample driver to the size of pred
-            # Assuming pred and driver are 4D tensors [batch, channels, height, width]
-            driver = F.interpolate(driver, size=(pred.size(2), pred.size(3)), mode='area')
+        driver = F.interpolate(driver, size=(224, 224), mode='nearest')
+        pred = F.interpolate(pred, size=(224, 224), mode='nearest')
 
         lpips_loss = self.lpips(self.normalize(pred), self.normalize(driver)).mean() * self.lpips_weight
 
@@ -60,12 +58,10 @@ class GANLoss(nn.Module):
         real_loss = 0
         fake_loss = 0
         adversarial_loss = 0
-        for fo in fake_outputs:
-            adversarial_loss = adversarial_loss - torch.mean(fo)
+        adversarial_loss = adversarial_loss - torch.mean(fake_outputs)
 
-        for real_output, fake_output in zip(real_outputs, faked_outputs):
-            real_loss = real_loss + F.relu(1.0 - real_output).mean()
-            fake_loss = fake_loss + F.relu(1.0 + fake_output).mean()
+        real_loss = real_loss + F.relu(1.0 - real_outputs).mean()
+        fake_loss = fake_loss + F.relu(1.0 + faked_outputs).mean()
 
         adversarial_loss = adversarial_loss * self.adversarial_weight
         real_loss = real_loss * self.real_weight
