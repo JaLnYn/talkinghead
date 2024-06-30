@@ -172,10 +172,10 @@ class Generator(nn.Module):
         # out which has moved through prog_blocks might change. To ensure
         # we can convert both to rgb we use different rgb_layers
         # (steps-1) and steps for upscaled, out respectively
-        final_upscaled = self.rgb_layers[steps - 1](upscaled)
-        final_out = self.rgb_layers[steps](out)
+        final_upscaled = F.sigmoid(self.rgb_layers[steps - 1](upscaled))
+        final_out = F.sigmoid(self.rgb_layers[steps](out))
         ret = self.fade_in(alpha, final_upscaled, final_out)
-        return (ret + 1) /2
+        return ret
 
 
 class Discriminator(nn.Module):
