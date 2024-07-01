@@ -116,6 +116,7 @@ def train_model(config, p, train_loader):
         log_interval = len(train_loader) // 5
         step = 0
         total_batches = len(train_loader)
+        epochs_percent = epoch/(num_epochs-2)
         for batch_idx, (Xs, Xd, Xsp, Xdp) in enumerate(train_iterator):
             # Calculate the percentage completion for the current batch
             percentage_complete = (batch_idx + 1) / total_batches
@@ -136,7 +137,7 @@ def train_model(config, p, train_loader):
 
             Eid, Eed, Epd = p.encode(Xd)
 
-            steps = max(2, min(6, epoch + 1))
+            steps = min(int(2 + epochs_percent * 6 ), 6)
 
             if epoch+1 >= 6:
                 steps = 6

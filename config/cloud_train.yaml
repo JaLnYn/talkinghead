@@ -1,15 +1,15 @@
 training:
   name: 'cloud_train'
   data_path: 'dataset/mp4'
-  learning_rate: 0.001
-  num_epochs: 10
+  learning_rate: 0.00001
+  num_epochs: 20
   batch_size: 12
 
 weights:
   gan:
     real: 0.2
-    fake: 0.4
-    feature_matching: 0.2
-    adversarial: 0.2
+    fake: 0.6
+    adversarial: 0.4
   perceptual:
     lpips: 1.0
+
