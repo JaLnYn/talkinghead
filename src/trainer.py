@@ -12,6 +12,7 @@ import random
 import wandb
 import tqdm
 import os
+from PIL import Image
 
 from src.model.portrait import Portrait
 
@@ -102,9 +103,9 @@ def train_model(config, p, train_loader):
     #         optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
     #         start_epoch = checkpoint['epoch'] + 1  # Start from next epoch
 
-    perceptual_loss = PerceptualLoss(config)
-    gan_loss = GANLoss(config, discriminator=p.discriminator)
     p.train()
+    perceptual_loss = PerceptualLoss(config)
+    gan_loss = GANLoss(config, model=p)
 
     total_batches = len(train_loader)
     for epoch in range(start_epoch, num_epochs):
@@ -142,6 +143,16 @@ def train_model(config, p, train_loader):
                 percentage_complete = 1.0
 
             gd = p.decode(Eid, Eed, Epd, percentage_complete, steps)
+
+            # Convert the numpy array to an image
+            np_num = gd[0].detach().cpu().numpy()
+            np_num = np.transpose(np_num, (1, 2, 0))
+            np_num = np.clip(np_num * 255, 0, 255).astype(np.uint8)
+            print(np_num)
+            image = Image.fromarray(np_num)
+
+            # Save the image
+            image.save(f'generated_image{batch_idx}.png')
 
             Lper = perceptual_loss(Xd, gd)
             Lgan = gan_loss(Xd, gd, percentage_complete, steps)

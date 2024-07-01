@@ -26,16 +26,14 @@ class Portrait(nn.Module):
 
         self.discriminator = Discriminator(512)
 
-        self.pose_encoder = models.resnet50()
-        self.pose_encoder.fc = nn.Linear(2048, 512)
+        self.pose_encoder = models.resnet18()
+        self.pose_encoder.fc = nn.Linear(512, 512)
 
-        self.iden_encoder = models.resnet50()
-        self.iden_encoder.fc = nn.Linear(2048, 512)
+        self.iden_encoder = models.resnet18()
+        self.iden_encoder.fc = nn.Linear(512, 512)
 
-        self.emot_encoder = models.resnet50()
-        self.emot_encoder.fc = nn.Linear(2048, 512)
-
-        self.resize = nn.Linear(1024, 512)
+        self.emot_encoder = models.resnet18()
+        self.emot_encoder.fc = nn.Linear(512, 512)
 
         self.generator = Generator(1536, 512)
 
@@ -49,12 +47,11 @@ class Portrait(nn.Module):
         return Ei, Ep, Ee
 
     def decode(self, Ei, Ep, Ee, alpha, step, zero_noise=False):
-        # generator_input = self.resize(torch.cat([Ep,Ee], dim=1))
         Y = self.generator(torch.cat([Ei, Ep, Ee], dim=1), alpha, step, zero_noise)
         return Y
 
-    def discriminator_forward(self, X):
-        return self.discriminator(X)
+    def discriminator_forward(self, X, alpha, step):
+        return self.discriminator(X, alpha, step)
 
     def forward(self, Xs, Xd, alpha, step, zero_noise=False):
         Eis = self.iden_encoder(Xs)
@@ -98,7 +95,7 @@ if __name__ == '__main__':
     assert torch.allclose(input_data_clone, input_data_backup, atol=1e-6), "Input data differs"
     output = model(input_data_clone, input_data_clone, 0.5, 6, zero_noise=True)
     print(max(output.flatten()), min(output.flatten()))
-    discrim_out = model.discriminator(output)
+    discrim_out = model.discriminator_forward(output, 0.5, 6)
     loss = output.mean() + discrim_out[0][0].mean()
     loss.backward()
     optimizer.step()  # Update weights with backpropagation
@@ -106,7 +103,7 @@ if __name__ == '__main__':
     # Get encoder outputs after training
     trained_pose, trained_iden, trained_emot = model.pose_encoder(input_data_clone), model.iden_encoder(input_data_clone), model.emot_encoder(input_data_clone)
     trained_output = model(input_data_clone, input_data_clone, 0.5, 6,  zero_noise=True)
-    trained_discrim_out = model.discriminator_forward(trained_output)
+    trained_discrim_out = model.discriminator_forward(trained_output, 0.5, 6)
 
     # Save model
     saved_state_dict = model.state_dict()
@@ -118,10 +115,10 @@ if __name__ == '__main__':
     # test unloaded  
     assert torch.allclose(input_data_clone, input_data_backup, atol=1e-6), "Input data differs"
     loaded_output = model_loaded(input_data_clone, input_data_clone, 0.5,6,  zero_noise=True)
-    discrim_out_loaded = model_loaded.discriminator_forward(output)
+    discrim_out_loaded = model_loaded.discriminator_forward(output, 0.5, 6)
     loaded_pose, loaded_iden, loaded_emot = model_loaded.pose_encoder(input_data_clone), model_loaded.iden_encoder(input_data_clone), model_loaded.emot_encoder(input_data_clone)
-    assert not torch.allclose(trained_discrim_out[0][0], discrim_out_loaded[0][0], atol=1e-6), "Full model outputs same before load."
-    assert not torch.allclose(trained_discrim_out[1][2][2], discrim_out_loaded[1][2][2], atol=1e-6), "Full model outputs same before load."
+    assert not torch.allclose(trained_discrim_out, discrim_out_loaded, atol=1e-6), "Full model outputs same before load."
+    assert not torch.allclose(trained_discrim_out, discrim_out_loaded, atol=1e-6), "Full model outputs same before load."
     assert not torch.allclose(loaded_output, trained_output, atol=1e-6), "Full model outputs same before load."
     assert not torch.allclose(trained_pose, loaded_pose, atol=1e-6), "Pose encoder outputs same before load."
     assert not torch.allclose(trained_iden, loaded_iden, atol=1e-6), "Identity encoder outputs same before load."
@@ -140,11 +137,11 @@ if __name__ == '__main__':
     assert torch.allclose(input_data_clone, input_data_backup, atol=1e-6), "Input data differs"
     loaded_output = model_loaded(input_data_clone, input_data_clone, 0.5,6, zero_noise=True)
     loaded_pose, loaded_iden, loaded_emot = model_loaded.pose_encoder(input_data_clone), model_loaded.iden_encoder(input_data_clone), model_loaded.emot_encoder(input_data_clone)
-    discrim_out_loaded = model_loaded.discriminator_forward(loaded_output)
+    discrim_out_loaded = model_loaded.discriminator_forward(loaded_output, 0.5, 6)
 
     # Compare encoder outputs
-    assert torch.allclose(trained_discrim_out[0][0], discrim_out_loaded[0][0], atol=1e-6), "Full model outputs differ after load."
-    assert torch.allclose(trained_discrim_out[1][2][2], discrim_out_loaded[1][2][2], atol=1e-6), "Full model outputs differ after load."
+    assert torch.allclose(trained_discrim_out, discrim_out_loaded, atol=1e-6), "Full model outputs differ after load."
+    assert torch.allclose(trained_discrim_out, discrim_out_loaded, atol=1e-6), "Full model outputs differ after load."
     assert torch.allclose(loaded_output, trained_output, atol=1e-6), "Full model outputs differ after load."
     assert torch.allclose(trained_pose, loaded_pose, atol=1e-6), "Pose encoder outputs differ after load."
     assert torch.allclose(trained_iden, loaded_iden, atol=1e-6), "Identity encoder outputs differ after load."

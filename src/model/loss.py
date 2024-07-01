@@ -35,9 +35,9 @@ class PerceptualLoss(nn.Module):
 
 
 class GANLoss(nn.Module):
-    def __init__(self, config, discriminator):
+    def __init__(self, config, model):
         super(GANLoss, self).__init__()
-        self.discriminator = discriminator
+        self.model = model 
         self.real_weight = config["weights"]["gan"]["real"] 
         self.fake_weight = config["weights"]["gan"]["fake"]
         self.adversarial_weight = config["weights"]["gan"]["adversarial"]
@@ -50,9 +50,9 @@ class GANLoss(nn.Module):
             real = F.interpolate(real, size=(fake.size(2), fake.size(3)), mode='area')
 
         # Get discriminator outputs and features for both real and fake images
-        real_outputs = self.discriminator(real, alpha, steps)
-        fake_outputs = self.discriminator(fake, alpha, steps)
-        faked_outputs = self.discriminator(fake.detach(), alpha, steps)
+        real_outputs = self.model.discriminator_forward(real, alpha, steps)
+        fake_outputs = self.model.discriminator_forward(fake, alpha, steps)
+        faked_outputs = self.model.discriminator_forward(fake.detach(), alpha, steps)
 
         # Compute hinge loss for real and fake images
         real_loss = 0
@@ -66,17 +66,6 @@ class GANLoss(nn.Module):
         adversarial_loss = adversarial_loss * self.adversarial_weight
         real_loss = real_loss * self.real_weight
         fake_loss = fake_loss * self.fake_weight    
-
-        # # Compute feature matching loss
-        # feature_matching_loss = 0
-        # # Iterate over each scale
-        # for scale_real_feats, scale_fake_feats in zip(real_features, fake_features):
-        #     # For each scale, iterate over each feature map
-        #     for real_feat, fake_feat in zip(scale_real_feats, scale_fake_feats):
-        #         # Calculate L1 loss between corresponding features from real and fake images
-        #         feature_matching_loss = feature_matching_loss + F.l1_loss(real_feat.detach(), fake_feat)
-
-        # feature_matching_loss = feature_matching_loss * self.feature_matching_weight
 
         # Normalize losses by number of scales and sum real and fake hinge losses
         total_loss = (real_loss + fake_loss + adversarial_loss) / len(real_outputs)
