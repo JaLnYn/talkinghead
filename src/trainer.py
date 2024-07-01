@@ -92,15 +92,15 @@ def train_model(config, p, train_loader):
 
     start_epoch = 0
 
-    if checkpoint_path is not None:
-        if os.path.exists(checkpoint_path) and len(os.listdir(checkpoint_path)) == 0:
-            latest_epoch = max([int(epoch_dir.split("epoch")[1]) for epoch_dir in os.listdir(checkpoint_path)])
-            checkpoint_path = os.path.join(checkpoint_path, f"epoch{latest_epoch}/checkpoint.pth")
+    # if checkpoint_path is not None:
+    #     if os.path.exists(checkpoint_path) and len(os.listdir(checkpoint_path)) == 0:
+    #         latest_epoch = max([int(epoch_dir.split("epoch")[1]) for epoch_dir in os.listdir(checkpoint_path)])
+    #         checkpoint_path = os.path.join(checkpoint_path, f"epoch{latest_epoch}/checkpoint.pth")
 
-            checkpoint = torch.load(checkpoint_path)
-            p.load_state_dict(checkpoint['model_state_dict'])
-            optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
-            start_epoch = checkpoint['epoch'] + 1  # Start from next epoch
+    #         checkpoint = torch.load(checkpoint_path)
+    #         p.load_state_dict(checkpoint['model_state_dict'])
+    #         optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+    #         start_epoch = checkpoint['epoch'] + 1  # Start from next epoch
 
     perceptual_loss = PerceptualLoss(config)
     gan_loss = GANLoss(config, discriminator=p.discriminator)
