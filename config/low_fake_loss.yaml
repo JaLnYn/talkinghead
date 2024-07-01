@@ -1,14 +1,14 @@
 training:
-  name: 'local_train'
+  name: 'low_fake_loss'
   data_path: 'dataset/mp4'
   learning_rate: 0.0001
   num_epochs: 10
-  batch_size: 2
+  batch_size: 12
 
 weights:
   gan:
     real: 0.2
-    fake: 0.6
+    fake: 0.2
     feature_matching: 0.2
     adversarial: 0.4
   perceptual:

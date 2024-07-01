@@ -14,7 +14,7 @@ class PerceptualLoss(nn.Module):
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.config = config
 
-        self.normalize = Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+        # self.normalize = Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
 
         self.lpips = lpips.LPIPS(net='vgg').to(self.device)
 
@@ -22,10 +22,10 @@ class PerceptualLoss(nn.Module):
 
 
     def forward(self, driver, pred):
-        driver = F.interpolate(driver, size=(224, 224), mode='nearest')
-        pred = F.interpolate(pred, size=(224, 224), mode='nearest')
+        driver = F.interpolate(driver, size=(224, 224), mode='bilinear')
+        pred = F.interpolate(pred, size=(224, 224), mode='bilinear')
 
-        lpips_loss = self.lpips(self.normalize(pred), self.normalize(driver)).mean() * self.lpips_weight
+        lpips_loss = self.lpips(pred, driver).mean() * self.lpips_weight
 
         # Return individual losses along with the total
         total_loss = lpips_loss
@@ -47,7 +47,7 @@ class GANLoss(nn.Module):
         if real.size() != fake.size():
             # Downsample driver to the size of pred
             # Assuming pred and driver are 4D tensors [batch, channels, height, width]
-            real = F.interpolate(real, size=(fake.size(2), fake.size(3)), mode='area')
+            real = F.interpolate(real, size=(fake.size(2), fake.size(3)), mode='bilinear')
 
         # Get discriminator outputs and features for both real and fake images
         real_outputs = self.model.discriminator_forward(real, alpha, steps)
@@ -72,7 +72,6 @@ class GANLoss(nn.Module):
         return total_loss,{
             'real_loss': real_loss,
             'fake_loss': fake_loss,
-            # 'feature_matching_loss': feature_matching_loss,
             'adversarial_loss': adversarial_loss
         }
     

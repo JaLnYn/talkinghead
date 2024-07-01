@@ -145,15 +145,6 @@ def train_model(config, p, train_loader):
             gd = p.decode(Eid, Eed, Epd, percentage_complete, steps)
 
             # Convert the numpy array to an image
-            np_num = gd[0].detach().cpu().numpy()
-            np_num = np.transpose(np_num, (1, 2, 0))
-            np_num = np.clip(np_num * 255, 0, 255).astype(np.uint8)
-            print(np_num)
-            image = Image.fromarray(np_num)
-
-            # Save the image
-            image.save(f'generated_image{batch_idx}.png')
-
             Lper = perceptual_loss(Xd, gd)
             Lgan = gan_loss(Xd, gd, percentage_complete, steps)
 

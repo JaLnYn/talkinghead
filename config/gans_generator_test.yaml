@@ -1,7 +1,7 @@
 training:
-  name: 'gans_gen_test_3'
+  name: 'testing_new_learing_rate'
   data_path: 'dataset/mp4'
-  learning_rate: 0.001
+  learning_rate: 0.0001
   num_epochs: 10
   batch_size: 12
 

@@ -26,14 +26,23 @@ class Portrait(nn.Module):
 
         self.discriminator = Discriminator(512)
 
-        self.pose_encoder = models.resnet18()
-        self.pose_encoder.fc = nn.Linear(512, 512)
+        self.pose_encoder = models.resnet50()
+        self.pose_encoder.fc = nn.Sequential(
+            nn.Linear(2048, 512),
+            nn.Tanh()
+        )
 
-        self.iden_encoder = models.resnet18()
-        self.iden_encoder.fc = nn.Linear(512, 512)
+        self.iden_encoder = models.resnet50()
+        self.iden_encoder.fc = nn.Sequential(
+            nn.Linear(2048, 512),
+            nn.Tanh()
+        )
 
-        self.emot_encoder = models.resnet18()
-        self.emot_encoder.fc = nn.Linear(512, 512)
+        self.emot_encoder = models.resnet50()
+        self.emot_encoder.fc = nn.Sequential(
+            nn.Linear(2048, 512),
+            nn.Tanh()
+        )
 
         self.generator = Generator(1536, 512)
 
