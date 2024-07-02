@@ -4,6 +4,8 @@ training:
   learning_rate: 0.0001
   num_epochs: 10
   batch_size: 2
+  initial_resolution: 4
+  final_resolution: 256
 
 weights:
   gan:

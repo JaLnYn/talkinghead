@@ -83,6 +83,7 @@ def load_data(root_dir, batch_size=8, transform=None):
 
 
 def train_model(config, p, train_loader):
+    initial_resolution = config["training"]["initial_resolution"]
     optimizer = torch.optim.Adam(p.parameters(), lr=p.config["training"]["learning_rate"])
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     p.to(device)
@@ -93,21 +94,31 @@ def train_model(config, p, train_loader):
 
     start_epoch = 0
 
-    # if checkpoint_path is not None:
-    #     if os.path.exists(checkpoint_path) and len(os.listdir(checkpoint_path)) == 0:
-    #         latest_epoch = max([int(epoch_dir.split("epoch")[1]) for epoch_dir in os.listdir(checkpoint_path)])
-    #         checkpoint_path = os.path.join(checkpoint_path, f"epoch{latest_epoch}/checkpoint.pth")
+    epochs_per_stage = config["training"]["epochs_per_stage"]
+    transition_epochs = config["training"]["transition_epochs"]
+    final_resolution = config["training"]["final_resolution"]
+    initial_resolution = config["training"]["initial_resolution"]
+    epochs_per_full_stage = epochs_per_stage + transition_epochs
 
-    #         checkpoint = torch.load(checkpoint_path)
-    #         p.load_state_dict(checkpoint['model_state_dict'])
-    #         optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
-    #         start_epoch = checkpoint['epoch'] + 1  # Start from next epoch
+    num_stages = int(np.log2(final_resolution) - np.log2(initial_resolution)) + 1
+    current_resolution = initial_resolution
+
+
+    if checkpoint_path is not None:
+        if os.path.exists(checkpoint_path) and len(os.listdir(checkpoint_path)) == 0:
+            latest_epoch = max([int(epoch_dir.split("epoch")[1]) for epoch_dir in os.listdir(checkpoint_path)])
+            checkpoint_path = os.path.join(checkpoint_path, f"epoch{latest_epoch}/checkpoint.pth")
+
+            checkpoint = torch.load(checkpoint_path)
+            p.load_state_dict(checkpoint['model_state_dict'])
+            optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+            start_epoch = checkpoint['epoch'] + 1  # Start from next epoch
+            current_resolution = checkpoint['current_resolution']
 
     p.train()
     perceptual_loss = PerceptualLoss(config)
     gan_loss = GANLoss(config, model=p)
 
-    total_batches = len(train_loader)
     for epoch in range(start_epoch, num_epochs):
         running_loss = 0
 
@@ -115,14 +126,27 @@ def train_model(config, p, train_loader):
         train_iterator = tqdm.tqdm(train_loader, desc=f"Epoch {epoch + 1}/{num_epochs}", total=len(train_loader))
         log_interval = len(train_loader) // 3
         step = 0
-        total_batches = len(train_loader)
-        epochs_percent = epoch/(num_epochs-2)
-        for batch_idx, (Xs, Xd, Xsp, Xdp) in enumerate(train_iterator):
-            # Calculate the percentage completion for the current batch
-            percentage_complete = (batch_idx + 1) / total_batches
 
-            if int(2 + epochs_percent * 6 ) == int(2 + (epoch-1)/(num_epochs-2)* 6):
-                percentage_complete = 1.0
+        stage = min(epoch // epochs_per_full_stage, num_stages - 1)
+
+        base_resolution = initial_resolution * 2**stage
+    
+        # Determine the alpha for smooth transition
+        if (epoch % epochs_per_full_stage) < epochs_per_stage:
+            alpha = 1
+        else:
+            alpha = (epoch % epochs_per_full_stage - epochs_per_stage) / transition_epochs
+        
+        # Determine the current resolution
+        if alpha < 1 and base_resolution < final_resolution:
+            current_resolution = int(base_resolution * 2)
+        else:
+            current_resolution = base_resolution
+
+
+
+        for (Xs, Xd, Xsp, Xdp) in train_iterator:
+            # Calculate the percentage completion for the current batch
 
             min_batch_size = min(Xs.size(0), Xd.size(0), Xsp.size(0), Xdp.size(0))
 
@@ -140,11 +164,10 @@ def train_model(config, p, train_loader):
 
             Eid, Eed, Epd = p.encode(Xd)
 
-            steps = min(int(2 + epochs_percent * 6 ), 6)
+            step = int(np.log2(current_resolution) - np.log2(initial_resolution))
 
-            if epoch+1 >= 6:
-                steps = 6
-                percentage_complete = 1.0
+            # Determine the alpha for smooth transition
+            alpha = min(1, current_epoch / transition_epochs)
 
             gd = p.decode(Eid, Eed, Epd, percentage_complete, steps)
 

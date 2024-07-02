@@ -71,13 +71,14 @@ class Portrait(nn.Module):
 
         return Y
     
-    def save_model(self, path, epoch, optimizer):
+    def save_model(self, path, epoch, optimizer, current_resolution):
         if not os.path.exists(path):
             os.makedirs(path)
         model_state = {
             'epoch': epoch,
+            'current_resolution':current_resolution ,
             'model_state_dict': self.state_dict(),
-            'optimizer_state_dict': optimizer.state_dict()
+            'optimizer_state_dict': optimizer.state_dict(),
         }
         torch.save(self.state_dict(), path + "portrait.pth")
         torch.save(model_state, os.path.join(path, "checkpoint.pth"))
