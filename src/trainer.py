@@ -113,13 +113,16 @@ def train_model(config, p, train_loader):
 
         # Wrap the training loader with tqdm for a progress bar
         train_iterator = tqdm.tqdm(train_loader, desc=f"Epoch {epoch + 1}/{num_epochs}", total=len(train_loader))
-        log_interval = len(train_loader) // 5
+        log_interval = len(train_loader) // 3
         step = 0
         total_batches = len(train_loader)
         epochs_percent = epoch/(num_epochs-2)
         for batch_idx, (Xs, Xd, Xsp, Xdp) in enumerate(train_iterator):
             # Calculate the percentage completion for the current batch
             percentage_complete = (batch_idx + 1) / total_batches
+
+            if int(2 + epochs_percent * 6 ) == int(2 + (epoch-1)/(num_epochs-2)* 6):
+                percentage_complete = 1.0
 
             min_batch_size = min(Xs.size(0), Xd.size(0), Xsp.size(0), Xdp.size(0))
 
