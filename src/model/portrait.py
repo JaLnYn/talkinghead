@@ -71,7 +71,7 @@ class Portrait(nn.Module):
 
         return Y
     
-    def save_model(self, path, epoch, optimizer, current_resolution):
+    def save_model(self, path, epoch, optimizer, current_resolution, current_alpha):
         if not os.path.exists(path):
             os.makedirs(path)
         model_state = {

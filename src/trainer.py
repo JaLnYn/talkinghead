@@ -11,6 +11,7 @@ import numpy as np
 import random
 import wandb
 import tqdm
+import math
 import os
 from PIL import Image
 
@@ -99,10 +100,7 @@ def train_model(config, p, train_loader):
     final_resolution = config["training"]["final_resolution"]
     initial_resolution = config["training"]["initial_resolution"]
     epochs_per_full_stage = epochs_per_stage + transition_epochs
-
-    num_stages = int(np.log2(final_resolution) - np.log2(initial_resolution)) + 1
     current_resolution = initial_resolution
-
 
     if checkpoint_path is not None:
         if os.path.exists(checkpoint_path) and len(os.listdir(checkpoint_path)) == 0:
@@ -125,29 +123,17 @@ def train_model(config, p, train_loader):
         # Wrap the training loader with tqdm for a progress bar
         train_iterator = tqdm.tqdm(train_loader, desc=f"Epoch {epoch + 1}/{num_epochs}", total=len(train_loader))
         log_interval = len(train_loader) // 3
-        step = 0
 
-        stage = min(epoch // epochs_per_full_stage, num_stages - 1)
+        current_resolution = min(initial_resolution*2**(epoch//epochs_per_full_stage), final_resolution)
+        step = int(math.log2(current_resolution))
 
-        base_resolution = initial_resolution * 2**stage
-    
-        # Determine the alpha for smooth transition
-        if (epoch % epochs_per_full_stage) < epochs_per_stage:
-            alpha = 1
+        in_transition = (epoch % epochs_per_full_stage) >= epochs_per_stage
+        if not in_transition:
+            passed_transitions = 0 # current alpha is the amount of transition phases that has passed
         else:
-            alpha = (epoch % epochs_per_full_stage - epochs_per_stage) / transition_epochs
-        
-        # Determine the current resolution
-        if alpha < 1 and base_resolution < final_resolution:
-            current_resolution = int(base_resolution * 2)
-        else:
-            current_resolution = base_resolution
+            passed_transitions = epoch % epochs_per_full_stage - epochs_per_stage
 
-
-
-        for (Xs, Xd, Xsp, Xdp) in train_iterator:
-            # Calculate the percentage completion for the current batch
-
+        for idx, (Xs, Xd, Xsp, Xdp) in enumerate(train_iterator):
             min_batch_size = min(Xs.size(0), Xd.size(0), Xsp.size(0), Xdp.size(0))
 
             # Check if the minimum batch size is zero
@@ -160,20 +146,22 @@ def train_model(config, p, train_loader):
             Xsp = Xsp[:min_batch_size].to(device)
             Xdp = Xdp[:min_batch_size].to(device)
 
+            if in_transition:
+                alpha = (passed_transitions * len(train_loader) + idx) / (transition_epochs * len(train_loader))
+                alpha = max(0, min(alpha, 1))
+            else:
+                alpha = 0
+
             optimizer.zero_grad()
 
             Eid, Eed, Epd = p.encode(Xd)
 
-            step = int(np.log2(current_resolution) - np.log2(initial_resolution))
 
-            # Determine the alpha for smooth transition
-            alpha = min(1, current_epoch / transition_epochs)
-
-            gd = p.decode(Eid, Eed, Epd, percentage_complete, steps)
+            gd = p.decode(Eid, Eed, Epd, alpha, step)
 
             # Convert the numpy array to an image
             Lper = perceptual_loss(Xd, gd)
-            Lgan = gan_loss(Xd, gd, percentage_complete, steps)
+            Lgan = gan_loss(Xd, gd, alpha, step)
 
 
             total_loss = Lper[0] + Lgan[0] 
@@ -183,7 +171,7 @@ def train_model(config, p, train_loader):
             total_loss.backward()
             optimizer.step()
 
-            if step % log_interval == 0:
+            if idx % log_interval == 0:
                 wandb.log({
                     'Example Source': wandb.Image(Xs[0].cpu().detach().numpy().transpose(1, 2, 0)),
                     'Example Driver': wandb.Image(Xd[0].cpu().detach().numpy().transpose(1, 2, 0)),
@@ -216,8 +204,7 @@ def train_model(config, p, train_loader):
             train_iterator.set_description(
                 f"Epoch {epoch + 1}/{num_epochs}, Total Loss: {total_loss.item():.4f}"
             )
-
-            step += 1
+        current_alpha += 1
 
         # p.save_model(path="./models/portrait/epoch{}/".format(epoch))
         p.save_model(path=f"./models/portrait/{p.config['training']['name']}/epoch{epoch}/", epoch=epoch,

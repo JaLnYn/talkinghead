@@ -4,8 +4,10 @@ training:
   learning_rate: 0.00001
   num_epochs: 20
   batch_size: 12
-  epochs_per_stage: 10
-  transition_epochs: 5
+  epochs_per_stage: 2
+  transition_epochs: 2
+  initial_resolution: 4
+  final_resolution: 256
 
 weights:
   gan:
