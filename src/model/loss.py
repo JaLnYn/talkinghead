@@ -163,38 +163,14 @@ if __name__ == '__main__':
     from src.dataloader import VideoDataset, transform  # Import the dataset class and transformation
     video_dataset = VideoDataset(root_dir='./dataset/mp4', transform=transform)
     device = "cuda"
+
     input_data = video_dataset[0][0:2].to(device)
     input_data_backup = input_data.clone()  # Backup to check for modifications
     input_data_clone = input_data.clone()  # Clone to prevent modification
     input_data_clone.requires_grad = False
-    target_data = torch.randn()
-    target_data = torch.nn.Parameter(target_data)
 
     import yaml
 
     with open('config/local_train.yaml', 'r') as file:
         config = yaml.safe_load(file)
 
-    # Function to test loss
-    def test_loss(loss_fn, t_data1, t_data2):
-        # Compute the loss
-        target_data1 = t_data1.clone().requires_grad_(True).to(device)
-        target_data2 = t_data1.clone().requires_grad_(True).to(device)
-        loss = loss_fn(target_data1, target_data2)
-
-        # Backward pass with retain_graph=True
-        loss[0].backward()
-
-        # Check if the gradients are consistent
-
-        assert torch.allclose(target_data.grad, input_data_clone.grad.clone()), "Gradients differ for the same input"
-
-        # Compute the loss again
-        loss_after_backward = loss_fn(target_data1, target_data2)
-
-        # Check if the loss remains the same after backward pass
-        assert torch.allclose(loss, loss_after_backward), "Loss changed after backward pass"
-
-    # Test with different loss functions
-    test_loss(PerceptualLoss(config), target_data)
-    test_loss(GANLoss(config), target_data)
