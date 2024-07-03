@@ -14,9 +14,11 @@ class PerceptualLoss(nn.Module):
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.config = config
 
-        # self.normalize = Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
-
         self.lpips = lpips.LPIPS(net='vgg').to(self.device)
+        self.vggface = InceptionResnetV1(pretrained='vggface2').eval()
+        
+        for param in self.vggface.parameters():
+            param.requires_grad = False
 
         self.lpips_weight = config["weights"]["perceptual"]["lpips"]
 

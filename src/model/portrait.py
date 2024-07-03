@@ -87,7 +87,14 @@ if __name__ == '__main__':
     torch.backends.cudnn.deterministic = True
     torch.backends.cudnn.benchmark = False
     torch.manual_seed(0)
+    # Load the YAML file
 
+    import yaml
+
+    with open('local_train.yaml', 'r') as file:
+        config = yaml.safe_load(file)
+
+    # Use the loaded config to initialize the model
     model = Portrait(None)
     model.train()  # Ensure model is in training mode
 
@@ -106,7 +113,7 @@ if __name__ == '__main__':
     output = model(input_data_clone, input_data_clone, 0.5, 6, zero_noise=True)
     print(max(output.flatten()), min(output.flatten()))
     discrim_out = model.discriminator_forward(output, 0.5, 6)
-    loss = output.mean() + discrim_out[0][0].mean()
+    loss = output.mean() + discrim_out[0][0].mean() # random losss doesnt matter
     loss.backward()
     optimizer.step()  # Update weights with backpropagation
 
@@ -156,5 +163,36 @@ if __name__ == '__main__':
     assert torch.allclose(trained_pose, loaded_pose, atol=1e-6), "Pose encoder outputs differ after load."
     assert torch.allclose(trained_iden, loaded_iden, atol=1e-6), "Identity encoder outputs differ after load."
     assert torch.allclose(trained_emot, loaded_emot, atol=1e-6), "Emotion encoder outputs differ after load."
+    
+    del trained_output, loaded_pose, loaded_iden, loaded_emot, discrim_out_loaded, loaded_output
+
+    #### TESTING LOSSES
+    from loss import PerceptualLoss, GANLoss
+
+
+    target_data = torch.randn_like(output)
+
+    def test_loss(loss_fn, t_data):
+        # Compute the loss
+        target_data = t_data.clone().to(model.device)
+        loss = loss_fn(output, target_data)
+
+        # Backward pass
+        loss.backward()
+
+        # Check if the gradients are consistent
+        assert torch.allclose(input_data_clone.grad, input_data_clone.grad.clone()), "Gradients differ for the same input"
+
+        # Update weights with optimizer
+        optimizer.step()
+
+        # Compute the loss again
+        loss_after_backward = loss_fn(output, target_data)
+
+        # Check if the loss remains the same after backward pass
+        assert torch.allclose(loss, loss_after_backward), "Loss changed after backward pass"
+
+    test_loss(PerceptualLoss(config), target_data)
+    test_loss(GANLoss(config), target_data)
 
     print("All checks passed successfully. Encoder outputs are consistent after training and loading.")
