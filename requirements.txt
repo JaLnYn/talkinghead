@@ -8,3 +8,10 @@ scipy==1.13.1
 setuptools==59.6.0
 tqdm==4.66.2
 trimesh==4.3.2
+torch==2.3.1
+torchaudio==2.3.1
+torchvision==0.18.1
+PyYaml==6.0.1
+facenet-pytorch==2.5.3
+wandb==0.17.4
+lpips==0.1.4

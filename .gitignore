@@ -5,3 +5,4 @@ venv
 models
 *.png
 wandb
+*.pth
