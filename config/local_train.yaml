@@ -19,3 +19,4 @@ weights:
   perceptual:
     lpips: 1.0
 
+# equation for num_epochs is (log2final_resolution - log2initial_resolution + 1) * epochs_per_stage + (log2final_resolution - log2initial_resolution) * transition_epochs
