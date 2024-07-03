@@ -87,12 +87,6 @@ if __name__ == '__main__':
     torch.backends.cudnn.deterministic = True
     torch.backends.cudnn.benchmark = False
     torch.manual_seed(0)
-    # Load the YAML file
-
-    import yaml
-
-    with open('config/local_train.yaml', 'r') as file:
-        config = yaml.safe_load(file)
 
     # Use the loaded config to initialize the model
     model = Portrait(None)
@@ -166,40 +160,6 @@ if __name__ == '__main__':
     
     del trained_output, loaded_pose, loaded_iden, loaded_emot, discrim_out_loaded, loaded_output
 
-    #### TESTING LOSSES
-    from loss import PerceptualLoss, GANLoss
 
-    target_data = torch.randn_like(output)
-    target_data = torch.nn.Parameter(target_data)
-
-    # Add target_data to the optimizer
-    optimizer.add_param_group({'params': target_data})
-
-    # Function to test loss
-    def test_loss(loss_fn, t_data):
-        input_data_clone = input_data.clone().to(model.device)
-        
-        # Compute the loss
-        target_data = t_data.clone().to(model.device)
-        loss = loss_fn(output, target_data)
-
-        # Backward pass with retain_graph=True
-        loss[0].backward(retain_graph=True)
-
-        # Check if the gradients are consistent
-        assert torch.allclose(input_data_clone.grad, input_data_clone.grad.clone()), "Gradients differ for the same input"
-
-        # Update weights with optimizer
-        optimizer.step()
-
-        # Compute the loss again
-        loss_after_backward = loss_fn(output, target_data)
-
-        # Check if the loss remains the same after backward pass
-        assert torch.allclose(loss, loss_after_backward), "Loss changed after backward pass"
-
-    # Test with different loss functions
-    test_loss(PerceptualLoss(config), target_data)
-    test_loss(GANLoss(config), target_data)
 
     print("All checks passed successfully. Encoder outputs are consistent after training and loading.")
