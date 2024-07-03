@@ -206,7 +206,6 @@ def train_model(config, p, train_loader):
             train_iterator.set_description(
                 f"Epoch {epoch + 1}/{num_epochs}, Total Loss: {total_loss.item():.4f}"
             )
-        current_alpha += 1
 
         # p.save_model(path="./models/portrait/epoch{}/".format(epoch))
         p.save_model(path=f"./models/portrait/{p.config['training']['name']}/epoch{epoch}/", epoch=epoch,
