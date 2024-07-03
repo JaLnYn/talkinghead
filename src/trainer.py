@@ -163,7 +163,6 @@ def train_model(config, p, train_loader):
             Lper = perceptual_loss(Xd, gd)
             Lgan = gan_loss(Xd, gd, alpha, step)
 
-
             total_loss = Lper[0] + Lgan[0] 
 
             running_loss += total_loss.item()
@@ -209,7 +208,7 @@ def train_model(config, p, train_loader):
 
         # p.save_model(path="./models/portrait/epoch{}/".format(epoch))
         p.save_model(path=f"./models/portrait/{p.config['training']['name']}/epoch{epoch}/", epoch=epoch,
-                     optimizer=optimizer)
+                     optimizer=optimizer, current_resolution=current_resolution)
         print(f'Epoch {epoch + 1}, Average Loss {running_loss / len(train_loader):.4f}')
 
 def main():
