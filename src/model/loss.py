@@ -174,3 +174,9 @@ if __name__ == '__main__':
     with open('config/local_train.yaml', 'r') as file:
         config = yaml.safe_load(file)
 
+    from src.model.portrait import Portrait
+
+    p = Portrait(config=config)
+
+    perceptionloss = PerceptualLoss(config)
+    ganloss = GANLoss(config, p)
