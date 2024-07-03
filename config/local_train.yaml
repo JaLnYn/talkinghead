@@ -1,9 +1,12 @@
 training:
   name: 'local_train'
+  use_wandb: False
   data_path: 'dataset/mp4'
   learning_rate: 0.0001
-  num_epochs: 10
+  num_epochs: 5
   batch_size: 2
+  epochs_per_stage: 2
+  transition_epochs: 2
   initial_resolution: 4
   final_resolution: 256
 
@@ -15,3 +18,4 @@ weights:
     adversarial: 0.4
   perceptual:
     lpips: 1.0
+

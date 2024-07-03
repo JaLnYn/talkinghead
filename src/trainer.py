@@ -88,7 +88,8 @@ def train_model(config, p, train_loader):
     optimizer = torch.optim.Adam(p.parameters(), lr=p.config["training"]["learning_rate"])
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     p.to(device)
-    wandb.init(project='portrait_project', resume="allow", config=config)
+    if config["training"]["use_wandb"]:
+        wandb.init(project='portrait_project', resume="allow", config=config)
 
     checkpoint_path = f"./models/portrait/{p.config['training']['name']}/"
     num_epochs = config["training"]["num_epochs"]
@@ -125,7 +126,7 @@ def train_model(config, p, train_loader):
         log_interval = len(train_loader) // 3
 
         current_resolution = min(initial_resolution*2**(epoch//epochs_per_full_stage), final_resolution)
-        step = int(math.log2(current_resolution))
+        step = int(math.log2(current_resolution))-2
 
         in_transition = (epoch % epochs_per_full_stage) >= epochs_per_stage
         if not in_transition:
@@ -156,7 +157,6 @@ def train_model(config, p, train_loader):
 
             Eid, Eed, Epd = p.encode(Xd)
 
-
             gd = p.decode(Eid, Eed, Epd, alpha, step)
 
             # Convert the numpy array to an image
@@ -171,7 +171,7 @@ def train_model(config, p, train_loader):
             total_loss.backward()
             optimizer.step()
 
-            if idx % log_interval == 0:
+            if idx % log_interval == 0 and config["training"]["use_wandb"]:
                 wandb.log({
                     'Example Source': wandb.Image(Xs[0].cpu().detach().numpy().transpose(1, 2, 0)),
                     'Example Driver': wandb.Image(Xd[0].cpu().detach().numpy().transpose(1, 2, 0)),
@@ -199,7 +199,9 @@ def train_model(config, p, train_loader):
             # if p.config['weights']['gan']['feature_matching'] != 0:
             #     wandb_log['Gan feature Loss'] = Lgan[1]['feature_matching_loss'].item()
 
-            wandb.log(wandb_log)
+            if config["training"]["use_wandb"]:
+                wandb.log(wandb_log)
+
 
             train_iterator.set_description(
                 f"Epoch {epoch + 1}/{num_epochs}, Total Loss: {total_loss.item():.4f}"
