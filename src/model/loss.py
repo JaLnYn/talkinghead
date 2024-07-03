@@ -8,6 +8,14 @@ from torchvision.transforms import Normalize
 
 import lpips
 
+class SimpleLoss(nn.Module):
+    def __init__(self, input_dim, output_dim):
+        super(SimpleLoss, self).__init__()
+        self.fc = nn.Linear(input_dim, output_dim)
+
+    def forward(self, x):
+        return self.fc(x)
+
 class PerceptualLoss(nn.Module):
     def __init__(self, config):
         super(PerceptualLoss, self).__init__()
@@ -165,11 +173,13 @@ if __name__ == '__main__':
     device = "cuda"
 
     input_data = video_dataset[0][0:2].to(device)
+    input_data2 = video_dataset[0][2:4].to(device)
     input_data_backup = input_data.clone()  # Backup to check for modifications
     input_data_clone = input_data.clone()  # Clone to prevent modification
     input_data_clone.requires_grad = False
 
     import yaml
+    import torch.optim as optim
 
     with open('config/local_train.yaml', 'r') as file:
         config = yaml.safe_load(file)
@@ -180,3 +190,46 @@ if __name__ == '__main__':
 
     perceptionloss = PerceptualLoss(config)
     ganloss = GANLoss(config, p)
+
+    ### Make sure losses are the same before and after backwards passes
+    def test_loss(loss_fn, t_data1, t_data2, model):
+        # Clone the input data and set requires_grad
+        input_data1 = t_data1.clone().detach().requires_grad_(True).to(model.device)
+        input_data2 = t_data2.clone().detach().requires_grad_(True).to(model.device)
+
+        # Zero the gradients
+        optimizer = optim.Adam(model.parameters(), lr=0.001)
+        optimizer.zero_grad()
+
+        # Compute the initial loss
+        initial_loss = loss_fn(input_data1, input_data2)[0]
+        
+        # Perform the backward pass
+        initial_loss.backward(retain_graph=True)
+
+
+        # Check if the gradients are consistent
+        grad_input_data1 = input_data1.grad.clone()
+        grad_input_data2 = input_data2.grad.clone()
+        
+        # Step the optimizer
+        optimizer.step()
+        optimizer.zero_grad()
+
+        # Compute the loss again
+        input_data1 = t_data1.clone().detach().requires_grad_(True).to(model.device)
+        input_data2 = t_data2.clone().detach().requires_grad_(True).to(model.device)
+
+        new_loss = loss_fn(input_data1, input_data2)[0]
+        new_loss.backward(retain_graph=True)
+
+        # Assert that the loss did not change
+        assert torch.allclose(initial_loss, new_loss), "Loss changed after optimizer step"
+
+        # Check if the gradients are zero after optimizer step
+        assert torch.allclose(input_data1.grad, grad_input_data1), "Gradients changed for input_data1"
+        assert torch.allclose(input_data2.grad, grad_input_data2), "Gradients changed for input_data2"
+
+    test_loss(perceptionloss, input_data, input_data2, p)
+
+    print("All checks passed successfully. loss outputs are consistent after training and loading.")
