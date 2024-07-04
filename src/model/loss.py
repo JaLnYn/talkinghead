@@ -15,7 +15,7 @@ class PerceptualLoss(nn.Module):
         self.config = config
 
         self.lpips = lpips.LPIPS(net='vgg').to(self.device)
-        self.vggface = InceptionResnetV1(pretrained='vggface2').eval()
+        self.vggface = InceptionResnetV1(pretrained='vggface2').eval().to(self.device)
         
         for param in self.vggface.parameters():
             param.requires_grad = False
@@ -27,12 +27,20 @@ class PerceptualLoss(nn.Module):
         driver = F.interpolate(driver, size=(224, 224), mode='bilinear')
         pred = F.interpolate(pred, size=(224, 224), mode='bilinear')
 
+        driver_embed = self.vggface(driver)
+        pred_embed = self.vggface(pred)
+
         lpips_loss = self.lpips(pred, driver).mean() * self.lpips_weight
 
+        cosine_loss = nn.CosineEmbeddingLoss().to(self.device)
+        target = torch.ones(driver_embed.size(0)).to(self.device)
+        vgg_loss = cosine_loss(driver_embed, pred_embed, target)
+
         # Return individual losses along with the total
-        total_loss = lpips_loss
+        total_loss = lpips_loss + vgg_loss
         return total_loss, {
             'lpips': lpips_loss,
+            'vgg': vgg_loss
         }
 
 
@@ -164,10 +172,10 @@ if __name__ == '__main__':
     video_dataset = VideoDataset(root_dir='./dataset/mp4', transform=transform)
     device = "cuda"
 
-    input_data = video_dataset[0][0:2].to(device)
-    input_data_backup = input_data.clone()  # Backup to check for modifications
-    input_data_clone = input_data.clone()  # Clone to prevent modification
-    input_data_clone.requires_grad = False
+    input_data = video_dataset[0][0:4].to(device)
+
+    batch_0 = input_data[0:2].to(device)
+    batch_1 = input_data[2:4].to(device)
 
     import yaml
 
@@ -178,5 +186,12 @@ if __name__ == '__main__':
 
     p = Portrait(config=config)
 
-    perceptionloss = PerceptualLoss(config)
-    ganloss = GANLoss(config, p)
+    perceptual_loss_module = PerceptualLoss(config)
+    gan_loss_module = GANLoss(config, p)
+
+    perceptual_loss = perceptual_loss_module(batch_0, batch_1)
+    print("Perceptual loss", perceptual_loss)
+
+    # TODO: Gan loss currently errors when called like this
+    # gan_loss = gan_loss_module(batch_0, batch_1)
+    # print("Gan loss", gan_loss)
