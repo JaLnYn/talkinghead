@@ -7,7 +7,7 @@ training:
   batch_size: 12
   epochs_per_stage: 2
   transition_epochs: 2
-  initial_resolution: 4
+  initial_resolution: 16
   final_resolution: 256
 
 weights:
