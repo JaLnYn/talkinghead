@@ -110,10 +110,9 @@ class IEPLoss(nn.Module):
         gps = self.resize_transform(gps)
         gpd = self.resize_transform(gpd)
 
-        Li = max(
+        Li = F.relu(
             torch.norm(self.model.encode_iden(gid) - self.model.encode_iden(gs), dim=1).mean()
-            - torch.norm(self.model.encode_iden(gis) - self.model.encode_iden(gs), dim=1).mean() + 1,
-            0)
+            - torch.norm(self.model.encode_iden(gis) - self.model.encode_iden(gs), dim=1).mean() + 1)
         
         Le = torch.norm(self.model.encode_pose(ged) - self.model.encode_pose(gs), dim=1).mean() \
             + torch.norm(self.model.encode_pose(ges) - self.model.encode_pose(gd), dim=1).mean()
