@@ -11,11 +11,15 @@ training:
   final_resolution: 256
 
 weights:
+  irfd:
+    i: 0.5
+    e: 0.5
+    p: 0.5
   gan:
     real: 0.2
     fake: 0.6
     feature_matching: 0.2
     adversarial: 0.4
   perceptual:
-    lpips: 1.0
-
+    lpips: 0.5
+    vgg: 0.5

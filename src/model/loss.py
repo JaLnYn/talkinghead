@@ -23,12 +23,13 @@ class PerceptualLoss(nn.Module):
         self.config = config
 
         self.lpips = lpips.LPIPS(net='vgg').to(self.device)
-        self.vggface = InceptionResnetV1(pretrained='vggface2').eval()
+        self.vggface = InceptionResnetV1(pretrained='vggface2').eval().to(self.device)
         
         for param in self.vggface.parameters():
             param.requires_grad = False
 
         self.lpips_weight = config["weights"]["perceptual"]["lpips"]
+        self.vgg_weight = config["weights"]["perceptual"]["vgg"]
 
 
     def forward(self, driver, pred):
@@ -36,11 +37,15 @@ class PerceptualLoss(nn.Module):
         pred = F.interpolate(pred, size=(224, 224), mode='bilinear')
 
         lpips_loss = self.lpips(pred, driver).mean() * self.lpips_weight
+        vgg_pred = self.vggface(pred)
+        vgg_driver = self.vggface(driver)
+        vgg_loss = torch.norm(vgg_pred - vgg_driver, dim=1).mean() * self.vgg_weight
 
         # Return individual losses along with the total
-        total_loss = lpips_loss
+        total_loss = lpips_loss + vgg_loss
         return total_loss, {
             'lpips': lpips_loss,
+            'vgg': vgg_loss
         }
 
 
@@ -84,7 +89,36 @@ class GANLoss(nn.Module):
             'fake_loss': fake_loss,
             'adversarial_loss': adversarial_loss
         }
+
+class IEPLoss(nn.Module):
+    def __init__(self, config, model):
+        super(IEPLoss, self).__init__()
+        self.model = model 
+        self.iweight = config["weights"]["irfd"]["i"] 
+        self.eweight = config["weights"]["irfd"]["e"]
+        self.pweight = config["weights"]["irfd"]["p"]
     
+    def forward(self, gs, gd, gis, gid, ges, ged, gps, gpd):
+        Li = max(
+            torch.norm(self.model.encode_iden(gid) - self.model.encode_iden(gs), dim=1).mean()
+            - torch.norm(self.model.encode_iden(gis) - self.model.encode_iden(gs), dim=1).mean() + 1,
+            0)
+        
+        Le = torch.norm(self.model.encode_pose(ged) - self.model.encode_pose(gs), dim=1).mean() \
+            + torch.norm(self.model.encode_pose(ges) - self.model.encode_pose(gd), dim=1).mean()
+
+        Lp = torch.norm(self.model.encode_pose(gpd) - self.model.encode_pose(gs), dim=1).mean() \
+            + torch.norm(self.model.encode_pose(gps) - self.model.encode_pose(gd), dim=1).mean()
+            
+        total_loss = Li * self.iweight + Le * self.eweight + Lp * self.pweight
+        return total_loss, {
+            'iden_loss': Li,
+            'emot_loss': Le,
+            'pose_loss': Lp,
+        }
+
+    
+
 class CycleConsistencyLoss(nn.Module):
     def __init__(self, config, emodel, scale=5.0, margin=0.2):
         super(CycleConsistencyLoss, self).__init__()

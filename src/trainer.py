@@ -3,7 +3,7 @@ import yaml
 
 from torch.utils.data import DataLoader
 from src.dataloader import VideoDataset, transform  # Import the dataset class and transformation
-from src.model.loss import PerceptualLoss, GANLoss, CycleConsistencyLoss
+from src.model.loss import PerceptualLoss, GANLoss, CycleConsistencyLoss, IEPLoss
 import matplotlib.pyplot as plt
 import torch
 import torch.nn as nn
@@ -103,20 +103,20 @@ def train_model(config, p, train_loader):
     epochs_per_full_stage = epochs_per_stage + transition_epochs
     current_resolution = initial_resolution
 
-    if checkpoint_path is not None:
-        if os.path.exists(checkpoint_path) and len(os.listdir(checkpoint_path)) == 0:
-            latest_epoch = max([int(epoch_dir.split("epoch")[1]) for epoch_dir in os.listdir(checkpoint_path)])
-            checkpoint_path = os.path.join(checkpoint_path, f"epoch{latest_epoch}/checkpoint.pth")
+    if os.path.exists(checkpoint_path) and len(os.listdir(checkpoint_path)) != 0:
+        latest_epoch = max([int(epoch_dir.split("epoch")[1]) for epoch_dir in os.listdir(checkpoint_path)])
+        checkpoint_path = os.path.join(checkpoint_path, f"epoch{latest_epoch}/checkpoint.pth")
 
-            checkpoint = torch.load(checkpoint_path)
-            p.load_state_dict(checkpoint['model_state_dict'])
-            optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
-            start_epoch = checkpoint['epoch'] + 1  # Start from next epoch
-            current_resolution = checkpoint['current_resolution']
+        checkpoint = torch.load(checkpoint_path)
+        p.load_state_dict(checkpoint['model_state_dict'])
+        optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+        start_epoch = checkpoint['epoch'] + 1  # Start from next epoch
+        current_resolution = checkpoint['current_resolution']
 
     p.train()
     perceptual_loss = PerceptualLoss(config)
     gan_loss = GANLoss(config, model=p)
+    iep_loss = IEPLoss(config, model=p)
 
     for epoch in range(start_epoch, num_epochs):
         running_loss = 0
@@ -156,14 +156,28 @@ def train_model(config, p, train_loader):
             optimizer.zero_grad()
 
             Eid, Eed, Epd = p.encode(Xd)
+            Eis, Ees, Eps = p.encode(Xs)
 
             gd = p.decode(Eid, Eed, Epd, alpha, step)
+            gs = p.decode(Eis, Ees, Eps, alpha, step)
+
+            gid = p.decode(Eis, Eed, Epd, alpha, step) # g = image, i = identity swap, d = driver, s = source
+            gis = p.decode(Eid, Ees, Eps, alpha, step)
+
+            ged = p.decode(Eid, Ees, Epd, alpha, step)
+            ges = p.decode(Eis, Eed, Eps, alpha, step)
+
+            gpd = p.decode(Eid, Eed, Eps, alpha, step)
+            gps = p.decode(Eis, Ees, Epd, alpha, step)
+
+            # missing Lcls
+            Liep = iep_loss(gs, gd, gis, gid, ges, ged, gps, gpd)
 
             # Convert the numpy array to an image
             Lper = perceptual_loss(Xd, gd)
             Lgan = gan_loss(Xd, gd, alpha, step)
 
-            total_loss = Lper[0] + Lgan[0] 
+            total_loss = Lper[0] + Lgan[0] + Liep[0]
 
             running_loss += total_loss.item()
 
@@ -182,10 +196,16 @@ def train_model(config, p, train_loader):
                 'Total Loss': total_loss.item()
             }
 
-            # if self.config['weights']['perceptual']['gaze'] != 0:
-            #     wandb_log['Gaze Loss'] = Lper[1]['Lgaze'].item()
+            if p.config['weights']['perceptual']['vgg'] != 0:
+                wandb_log['vgg loss'] = Lper[1]['vgg'].item()
             if p.config['weights']['perceptual']['lpips'] != 0:
                 wandb_log['lpips Loss'] = Lper[1]['lpips'].item()
+            if p.config['weights']['irfd']['i'] != 0:
+                wandb_log['Identity IRFD Loss'] = Liep[1]['iden_loss'].item()
+            if p.config['weights']['irfd']['e'] != 0:
+                wandb_log['Identity IRFD Loss'] = Liep[1]['emot_loss'].item()
+            if p.config['weights']['irfd']['p'] != 0:
+                wandb_log['Identity IRFD Loss'] = Liep[1]['pose_loss'].item()
             if p.config['weights']['gan']['real'] + p.config['weights']['gan']['fake'] + p.config['weights']['gan'][
                 'feature_matching'] != 0:
                 wandb_log['GAN Loss'] = Lgan[0].item()
@@ -195,6 +215,8 @@ def train_model(config, p, train_loader):
                 wandb_log['GAN fake Loss'] = Lgan[1]['fake_loss'].item()
             if p.config['weights']['gan']['adversarial'] != 0:
                 wandb_log['GAN adversarial Loss'] = Lgan[1]['adversarial_loss'].item()
+
+            
             # if p.config['weights']['gan']['feature_matching'] != 0:
             #     wandb_log['Gan feature Loss'] = Lgan[1]['feature_matching_loss'].item()
 

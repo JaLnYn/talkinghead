@@ -55,6 +55,15 @@ class Portrait(nn.Module):
         Ee = self.emot_encoder(X)
         return Ei, Ep, Ee
 
+    def encode_iden(self, X):
+        return self.iden_encoder(X)
+
+    def encode_pose(self, X):
+        return self.pose_encoder(X)
+
+    def encode_emot(self, X):     
+        return self.emot_encoder(X)
+
     def decode(self, Ei, Ep, Ee, alpha, step, zero_noise=False):
         Y = self.generator(torch.cat([Ei, Ep, Ee], dim=1), alpha, step, zero_noise)
         return Y
