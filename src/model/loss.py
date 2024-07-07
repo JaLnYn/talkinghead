@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+import torchvision.transforms as transforms
 from torchvision.models import resnet18
 from facenet_pytorch import InceptionResnetV1
 from src.model.discriminator import MultiScalePatchDiscriminator
@@ -97,8 +98,18 @@ class IEPLoss(nn.Module):
         self.iweight = config["weights"]["irfd"]["i"] 
         self.eweight = config["weights"]["irfd"]["e"]
         self.pweight = config["weights"]["irfd"]["p"]
+        self.resize_transform = transforms.Resize((224, 224))
     
     def forward(self, gs, gd, gis, gid, ges, ged, gps, gpd):
+        gs = self.resize_transform(gs)
+        gd = self.resize_transform(gd)
+        gis = self.resize_transform(gis)
+        gid = self.resize_transform(gid)
+        ges = self.resize_transform(ges)
+        ged = self.resize_transform(ged)
+        gps = self.resize_transform(gps)
+        gpd = self.resize_transform(gpd)
+
         Li = max(
             torch.norm(self.model.encode_iden(gid) - self.model.encode_iden(gs), dim=1).mean()
             - torch.norm(self.model.encode_iden(gis) - self.model.encode_iden(gs), dim=1).mean() + 1,
