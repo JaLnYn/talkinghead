@@ -203,9 +203,9 @@ def train_model(config, p, train_loader):
             if p.config['weights']['irfd']['i'] != 0:
                 wandb_log['Identity IRFD Loss'] = Liep[1]['iden_loss'].item()
             if p.config['weights']['irfd']['e'] != 0:
-                wandb_log['Identity IRFD Loss'] = Liep[1]['emot_loss'].item()
+                wandb_log['Emotion IRFD Loss'] = Liep[1]['emot_loss'].item()
             if p.config['weights']['irfd']['p'] != 0:
-                wandb_log['Identity IRFD Loss'] = Liep[1]['pose_loss'].item()
+                wandb_log['Pose IRFD Loss'] = Liep[1]['pose_loss'].item()
             if p.config['weights']['gan']['real'] + p.config['weights']['gan']['fake'] + p.config['weights']['gan'][
                 'feature_matching'] != 0:
                 wandb_log['GAN Loss'] = Lgan[0].item()
