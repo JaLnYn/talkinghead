@@ -193,7 +193,9 @@ def train_model(config, p, train_loader):
 
             wandb_log = {
                 'Epoch': epoch + 1,
-                'Total Loss': total_loss.item()
+                'Total Loss': total_loss.item(),
+                'Alpha': alpha,
+                'Step': step
             }
 
             if p.config['weights']['perceptual']['vgg'] != 0:
