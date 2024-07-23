@@ -2,9 +2,9 @@ training:
   name: 'cloud_train'
   use_wandb: True 
   data_path: 'dataset/mp4'
-  learning_rate: 0.00001
+  learning_rate: 0.000001
   num_epochs: 100
-  batch_size: 12
+  batch_size: 8 
   epochs_per_stage: 5
   transition_epochs: 5
   initial_resolution: 16
