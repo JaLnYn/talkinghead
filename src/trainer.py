@@ -167,7 +167,7 @@ def train_model(config, p, train_loader):
 
 
             # missing Lcls
-            Lcyc = cyc_loss(Xd, Xdp, gsd)
+            Lcyc = cyc_loss(Xd, Xdp, gsd, gspd)
 
             # Convert the numpy array to an image
             Lper = perceptual_loss(Xd, gsd)
