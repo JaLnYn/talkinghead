@@ -2,7 +2,7 @@ training:
   name: 'cloud_train'
   use_wandb: True 
   data_path: 'dataset/mp4'
-  learning_rate: 0.000001
+  learning_rate: 0.00001
   num_epochs: 100
   batch_size: 8 
   epochs_per_stage: 5
@@ -11,10 +11,6 @@ training:
   final_resolution: 256
 
 weights:
-  irfd:
-    i: 0.1
-    e: 0.1
-    p: 0.1
   gan:
     real: 0.2
     fake: 0.6
@@ -23,3 +19,4 @@ weights:
   perceptual:
     lpips: 0.5
     vgg: 0.5
+  cycle: 0.5

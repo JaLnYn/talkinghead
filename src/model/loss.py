@@ -3,7 +3,6 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torchvision.transforms as transforms
 from torchvision.models import resnet18
-from facenet_pytorch import InceptionResnetV1
 from src.model.discriminator import MultiScalePatchDiscriminator
 from torchvision.transforms import Normalize
 
@@ -18,13 +17,13 @@ class SimpleLoss(nn.Module):
         return self.fc(x)
 
 class PerceptualLoss(nn.Module):
-    def __init__(self, config):
+    def __init__(self, config, vggface):
         super(PerceptualLoss, self).__init__()
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.config = config
 
         self.lpips = lpips.LPIPS(net='vgg').to(self.device)
-        self.vggface = InceptionResnetV1(pretrained='vggface2').eval().to(self.device)
+        self.vggface = vggface
         
         for param in self.vggface.parameters():
             param.requires_grad = False
@@ -130,21 +129,19 @@ class IEPLoss(nn.Module):
     
 
 class CycleConsistencyLoss(nn.Module):
-    def __init__(self, config, emodel, scale=5.0, margin=0.2):
+    def __init__(self, config, model, scale=5.0, margin=0.2):
         super(CycleConsistencyLoss, self).__init__()
         self.weight = config["weights"]["cycle"]
-        self.emodel = emodel
+        self.model = model 
         self.scale = scale
         self.margin = margin
 
     def forward(self, Xd, Xd_prime, gsd, gspd):
         batch_size = Xd.size(0)
-        zd = self.emodel(Xd)
-        zdp = self.emodel(Xd_prime)
-        zsd = self.emodel(gsd)
-        zspd = self.emodel(gspd)
-
-
+        zd = self.model.encode_emot(Xd)
+        zdp = self.model.encode_emot(Xd_prime)
+        zsd = self.model.encode_emot(gsd)
+        zspd = self.model.encode_emot(gspd)
 
         # Calculate cosine similarity and apply margin and scale
         def cosine_distance(z1, z2):
@@ -165,16 +162,14 @@ class CycleConsistencyLoss(nn.Module):
 
 
 class VasaLoss(nn.Module):
-    def __init__(self, config, face3d, arcface, emodel, gaze_model):
+    def __init__(self, config, emodel, vggface, gaze_model):
         super(VasaLoss, self).__init__()
-        self.face3d = face3d
-        self.arcface = arcface
         self.emodel = emodel
+        self.vggface = vggface
         self.gaze_model = gaze_model
         self.gaze_weight = config["weights"]["vasa"]["gaze"]
         self.arcface_weight = config["weights"]["vasa"]["arcface"]
         self.emodel_weight = config["weights"]["vasa"]["emodel"]
-        self.face3d_weight = config["weights"]["vasa"]["face3d"] 
 
     def forward(self, giiij, gjjij, gsd, gsmod):
         batch_size = giiij.size(0)
@@ -183,19 +178,19 @@ class VasaLoss(nn.Module):
         zj = self.emodel(gjjij)
 
 
-        coeffs_s = self.face3d(giiij, compute_render=False)
-        coef_dict_s = self.face3d.facemodel.split_coeff(coeffs_s)
-        r_s = coef_dict_s['angle']
-        t_s = coef_dict_s['trans']
+        # coeffs_s = self.face3d(giiij, compute_render=False)
+        # coef_dict_s = self.face3d.facemodel.split_coeff(coeffs_s)
+        # r_s = coef_dict_s['angle']
+        # t_s = coef_dict_s['trans']
 
-        coeffs_d = self.face3d(gjjij, compute_render=False)
-        coef_dict_d = self.face3d.facemodel.split_coeff(coeffs_d)
-        r_d = coef_dict_d['angle']
-        t_d = coef_dict_d['trans']
+        # coeffs_d = self.face3d(gjjij, compute_render=False)
+        # coef_dict_d = self.face3d.facemodel.split_coeff(coeffs_d)
+        # r_d = coef_dict_d['angle']
+        # t_d = coef_dict_d['trans']
 
         cosloss = F.cosine_embedding_loss(zi, zj, torch.ones(zi.size(0)).to(zi.device))/batch_size * self.emodel_weight
         assert zi.size(0) == batch_size
-        rotation_loss = sum(torch.norm(r_s - r_d, dim=1) + torch.norm(t_s - t_d, dim=1))/batch_size * self.face3d_weight
+        # rotation_loss = sum(torch.norm(r_s - r_d, dim=1) + torch.norm(t_s - t_d, dim=1))/batch_size * self.face3d_weight
         assert r_s.size(0) == batch_size
 
         # gaze_pred_1 = self.gaze_model.get_gaze(giiij)
@@ -207,7 +202,7 @@ class VasaLoss(nn.Module):
         emod = self.arcface(gsmod)
 
         arcloss = F.cosine_embedding_loss(esd, emod, -torch.ones(esd.size(0)).to(esd.device))
-        return (arcloss + rotation_loss + cosloss, {"arcloss": arcloss, "rotationloss": rotation_loss, "cosloss": cosloss})
+        return (arcloss + cosloss, {"arcloss": arcloss, "cosloss": cosloss})
 
 if __name__ == '__main__':
     #### TESTING LOSSES

@@ -3,7 +3,7 @@ import yaml
 
 from torch.utils.data import DataLoader
 from src.dataloader import VideoDataset, transform  # Import the dataset class and transformation
-from src.model.loss import PerceptualLoss, GANLoss, CycleConsistencyLoss, IEPLoss
+from src.model.loss import PerceptualLoss, GANLoss, CycleConsistencyLoss
 import matplotlib.pyplot as plt
 import torch
 import torch.nn as nn
@@ -14,6 +14,7 @@ import tqdm
 import math
 import os
 from PIL import Image
+from facenet_pytorch import InceptionResnetV1
 
 from src.model.portrait import Portrait
 
@@ -114,9 +115,10 @@ def train_model(config, p, train_loader):
         current_resolution = checkpoint['current_resolution']
 
     p.train()
-    perceptual_loss = PerceptualLoss(config)
+    vggface = InceptionResnetV1(pretrained='vggface2').eval().to(device)
+    perceptual_loss = PerceptualLoss(config, vggface)
     gan_loss = GANLoss(config, model=p)
-    iep_loss = IEPLoss(config, model=p)
+    cyc_loss = CycleConsistencyLoss(config, model=p)
 
     for epoch in range(start_epoch, num_epochs):
         running_loss = 0
@@ -157,27 +159,21 @@ def train_model(config, p, train_loader):
 
             Eid, Eed, Epd = p.encode(Xd)
             Eis, Ees, Eps = p.encode(Xs)
+            Eisp, Eesp, Epsp = p.encode(Xsp)
 
             gd = p.decode(Eid, Eed, Epd, alpha, step)
-            gs = p.decode(Eis, Ees, Eps, alpha, step)
+            gsd = p.decode(Eis, Eed, Epd, alpha, step)
+            gspd = p.decode(Eisp, Eed, Epd, alpha, step)
 
-            gid = p.decode(Eis, Eed, Epd, alpha, step) # g = image, i = identity swap, d = driver, s = source
-            gis = p.decode(Eid, Ees, Eps, alpha, step)
-
-            ged = p.decode(Eid, Ees, Epd, alpha, step)
-            ges = p.decode(Eis, Eed, Eps, alpha, step)
-
-            gpd = p.decode(Eid, Eed, Eps, alpha, step)
-            gps = p.decode(Eis, Ees, Epd, alpha, step)
 
             # missing Lcls
-            Liep = iep_loss(gs, gd, gis, gid, ges, ged, gps, gpd)
+            Lcyc = cyc_loss(Xd, Xdp, gsd)
 
             # Convert the numpy array to an image
-            Lper = perceptual_loss(Xd, gd)
-            Lgan = gan_loss(Xd, gd, alpha, step)
+            Lper = perceptual_loss(Xd, gsd)
+            Lgan = gan_loss(Xd, gsd, alpha, step)
 
-            total_loss = Lper[0] + Lgan[0] + Liep[0]
+            total_loss = Lper[0] + Lgan[0] + Lcyc
 
             running_loss += total_loss.item()
 
@@ -186,9 +182,10 @@ def train_model(config, p, train_loader):
 
             if idx % log_interval == 0 and config["training"]["use_wandb"]:
                 wandb.log({
-                    'Example Source': wandb.Image(Xs[0].cpu().detach().numpy().transpose(1, 2, 0)),
+                    'Example Source': wandb.Image(Xsp[0].cpu().detach().numpy().transpose(1, 2, 0)),
                     'Example Driver': wandb.Image(Xd[0].cpu().detach().numpy().transpose(1, 2, 0)),
                     'Example Output': wandb.Image(gd[0].cpu().detach().numpy().transpose(1, 2, 0)),
+                    'Example Source to Driver': wandb.Image(gspd[0].cpu().detach().numpy().transpose(1, 2, 0)),
                 })
 
             wandb_log = {
@@ -202,12 +199,8 @@ def train_model(config, p, train_loader):
                 wandb_log['vgg loss'] = Lper[1]['vgg'].item()
             if p.config['weights']['perceptual']['lpips'] != 0:
                 wandb_log['lpips Loss'] = Lper[1]['lpips'].item()
-            if p.config['weights']['irfd']['i'] != 0:
-                wandb_log['Identity IRFD Loss'] = Liep[1]['iden_loss'].item()
-            if p.config['weights']['irfd']['e'] != 0:
-                wandb_log['Emotion IRFD Loss'] = Liep[1]['emot_loss'].item()
-            if p.config['weights']['irfd']['p'] != 0:
-                wandb_log['Pose IRFD Loss'] = Liep[1]['pose_loss'].item()
+            if p.config['weights']['cycle'] != 0:
+                wandb_log['Pose IRFD Loss'] = Lcyc.item()
             if p.config['weights']['gan']['real'] + p.config['weights']['gan']['fake'] + p.config['weights']['gan'][
                 'feature_matching'] != 0:
                 wandb_log['GAN Loss'] = Lgan[0].item()

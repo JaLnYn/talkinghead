@@ -11,10 +11,6 @@ training:
   final_resolution: 256
 
 weights:
-  irfd:
-    i: 0
-    e: 0
-    p: 0
   gan:
     real: 0.2
     fake: 0.6
@@ -23,3 +19,4 @@ weights:
   perceptual:
     lpips: 0.5
     vgg: 0.5
+  cycle: 0
