@@ -200,7 +200,7 @@ def train_model(config, p, train_loader):
             if p.config['weights']['perceptual']['lpips'] != 0:
                 wandb_log['lpips Loss'] = Lper[1]['lpips'].item()
             if p.config['weights']['cycle'] != 0:
-                wandb_log['Pose IRFD Loss'] = Lcyc.item()
+                wandb_log['CycleLoss Loss'] = Lcyc.item()
             if p.config['weights']['gan']['real'] + p.config['weights']['gan']['fake'] + p.config['weights']['gan'][
                 'feature_matching'] != 0:
                 wandb_log['GAN Loss'] = Lgan[0].item()

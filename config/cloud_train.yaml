@@ -19,4 +19,4 @@ weights:
   perceptual:
     lpips: 0.5
     vgg: 0.5
-  cycle: 0.5
+  cycle: 0.005
