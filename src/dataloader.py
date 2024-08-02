@@ -7,8 +7,6 @@ from torch.utils.data import Dataset
 from decord import VideoReader, cpu
 from torchvision.transforms import Compose, Lambda, Normalize
 
-from decord import VideoReader, cpu
-
 class VideoDataset(Dataset):
     def __init__(self, root_dir, transform=None, frames_per_clip=16):
         self.root_dir = root_dir
@@ -23,16 +21,20 @@ class VideoDataset(Dataset):
     
     def __getitem__(self, idx):
         video_path = self.video_files[idx]
-        vr = VideoReader(video_path, ctx=cpu(0))
-        total_frames = len(vr)
-        frame_indices = random.sample(range(total_frames), self.frames_per_clip)
-        video_data = vr.get_batch(frame_indices).asnumpy()
-        video_tensor = torch.from_numpy(video_data).float().to('cuda')
-        
-        if self.transform:
-            video_tensor = self.transform(video_tensor)
-        
-        return video_tensor
+        try:
+            vr = VideoReader(video_path, ctx=cpu(0))
+            total_frames = len(vr)
+            frame_indices = random.sample(range(total_frames), self.frames_per_clip)
+            video_data = vr.get_batch(frame_indices).asnumpy()
+            video_tensor = torch.from_numpy(video_data).float().to('cuda')
+
+            if self.transform:
+                video_tensor = self.transform(video_tensor)
+
+            return video_tensor
+        except Exception as e:
+            print(f"Error loading video {video_path}: {e}")
+            return None
 
 # Define transformations
 transform = Compose([

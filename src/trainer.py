@@ -36,12 +36,16 @@ def collate_frames(batch):
 
     half_point = len(batch) // 2
     for item in batch[:half_point]:
+        if item is None:
+            continue
         if item.shape[0] > 1:  # Ensure there is more than one frame
             indices = random.sample(range(item.shape[0]), 2)
             Xs_stack.append(item[indices[0]])
             Xd_stack.append(item[indices[1]])
 
     for item in batch[half_point:]:
+        if item is None:
+            continue
         if item.shape[0] > 1:
             indices = random.sample(range(item.shape[0]), 2)
             Xs_prime_stack.append(item[indices[0]])
@@ -140,6 +144,7 @@ def train_model(config, p, train_loader):
             # Check if the minimum batch size is zero
             if min_batch_size == 0:
                 continue  # Skip this iteration
+            
 
             # Crop batches to the minimum batch size
             Xs = Xs[:min_batch_size].to(device)
@@ -249,7 +254,7 @@ def main():
         print("Config path is None")
         assert False
         
-    video_dataset = load_data(root_dir='./dataset/mp4', transform=transform, batch_size=config["training"]["batch_size"])
+    video_dataset = load_data(root_dir=config["training"]["data_path"], transform=transform, batch_size=config["training"]["batch_size"])
     p = Portrait(config)
 
     train_model(config, p, video_dataset)
