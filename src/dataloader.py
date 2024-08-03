@@ -12,9 +12,14 @@ class VideoDataset(Dataset):
         self.root_dir = root_dir
         self.transform = transform
         self.frames_per_clip = frames_per_clip
-        self.video_files = [os.path.join(subdir, file)
-                            for subdir, dirs, files in os.walk(root_dir)
-                            for file in files if file.endswith('.mp4')]
+
+        if root_dir.endswith('.txt'):
+            with open(root_dir, 'r') as f:
+                self.video_files = [line.strip() for line in f if line.strip().endswith('.mp4')]
+        else:
+            self.video_files = [os.path.join(subdir, file)
+                                for subdir, dirs, files in os.walk(root_dir)
+                                for file in files if file.endswith('.mp4')]
     
     def __len__(self):
         return len(self.video_files)
