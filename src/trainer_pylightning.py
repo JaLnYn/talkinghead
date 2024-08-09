@@ -166,7 +166,7 @@ def main():
     if config["training"]["use_wandb"]:
         wandb.init(project='portrait_project', resume="allow", config=config)
 
-    trainer = pl.Trainer(max_epochs=config["training"]["num_epochs"], devices=-1 if torch.cuda.is_available() else 0, accelerator="gpu")
+    trainer = pl.Trainer(max_epochs=config["training"]["num_epochs"], devices=-1 if torch.cuda.is_available() else 0, accelerator="gpu" if torch.cuda.is_available() else None)
     model = PortraitTrainer(config)
     trainer.fit(model)
 
