@@ -189,6 +189,12 @@ class PortraitTrainer(pl.LightningModule):
         self.p.save_model(path=checkpoint_path, epoch=self.current_epoch, optimizer=self.optimizers(), current_resolution=self.initial_resolution)
         print(f'Epoch {self.current_epoch + 1}, Average Loss: {self.trainer.callback_metrics["total_loss"].item():.4f}')
 
+def find_latest_checkpoint(checkpoint_dir):
+    checkpoint_files = [os.path.join(checkpoint_dir, f) for f in os.listdir(checkpoint_dir) if f.endswith('.ckpt')]
+    if not checkpoint_files:
+        return None
+    latest_checkpoint = max(checkpoint_files, key=os.path.getctime)
+    return latest_checkpoint
 
 def main():
     import argparse
@@ -206,9 +212,18 @@ def main():
     if config["training"]["use_wandb"]:
         wandb.init(project='portrait_project', resume="allow", config=config)
 
-    trainer = pl.Trainer(max_epochs=config["training"]["num_epochs"], devices=-1 if torch.cuda.is_available() else 0, accelerator="gpu" if torch.cuda.is_available() else None, strategy='ddp_find_unused_parameters_true'
+    latest_checkpoint = find_latest_checkpoint(config["training"]["model_path"])
+
+    trainer = pl.Trainer(default_root_dir=config["training"]["model_path"], max_epochs=config["training"]["num_epochs"], devices=-1 if torch.cuda.is_available() else 0, accelerator="gpu" if torch.cuda.is_available() else None, strategy='ddp_find_unused_parameters_true'
 )
-    model = PortraitTrainer(config)
+
+    if latest_checkpoint:
+        print(f"Resuming from checkpoint: {latest_checkpoint}")
+        model = PortraitTrainer.load_from_checkpoint(latest_checkpoint)
+    else:
+        print("initializing model")
+        model = PortraitTrainer(config)
+
     trainer.fit(model)
 
 

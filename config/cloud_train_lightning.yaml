@@ -1,6 +1,7 @@
 training:
   name: 'cloud_train_lightning'
   use_wandb: True 
+  model_path: 'models/portrait'
   data_path: '../video_data_cleaner/quality_scores.txt'  
   learning_rate: 0.000001
   num_epochs: 100
