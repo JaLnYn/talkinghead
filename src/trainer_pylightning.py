@@ -139,6 +139,46 @@ class PortraitTrainer(pl.LightningModule):
         self.log('Lgan', Lgan[0])
         self.log('Liep', Liep[0])
 
+        if batch_idx % 100 == 0 and self.config["training"]["use_wandb"]:
+            wandb.log({
+                'Example Source': wandb.Image(Xs[0].cpu().detach().numpy().transpose(1, 2, 0)),
+                'Example Driver': wandb.Image(Xd[0].cpu().detach().numpy().transpose(1, 2, 0)),
+                'Example Output': wandb.Image(gd[0].cpu().detach().numpy().transpose(1, 2, 0)),
+            })
+
+        wandb_log = {
+            'Epoch': epoch + 1,
+            'Total Loss': total_loss.item(),
+            'Alpha': alpha,
+            'Step': step
+        }
+
+        if self.config['weights']['perceptual']['vgg'] != 0:
+            wandb_log['vgg loss'] = Lper[1]['vgg'].item()
+        if self.config['weights']['perceptual']['lpips'] != 0:
+            wandb_log['lpips Loss'] = Lper[1]['lpips'].item()
+        if self.config['weights']['irfd']['i'] != 0:
+            wandb_log['Identity IRFD Loss'] = Liep[1]['iden_loss'].item()
+        if self.config['weights']['irfd']['e'] != 0:
+            wandb_log['Emotion IRFD Loss'] = Liep[1]['emot_loss'].item()
+        if self.config['weights']['irfd']['p'] != 0:
+            wandb_log['Pose IRFD Loss'] = Liep[1]['pose_loss'].item()
+        if self.config['weights']['gan']['real'] + self.config['weights']['gan']['fake'] + self.config['weights']['gan']['feature_matching'] != 0:
+            wandb_log['GAN Loss'] = Lgan[0].item()
+        if self.config['weights']['gan']['real'] != 0:
+            wandb_log['GAN real Loss'] = Lgan[1]['real_loss'].item()
+        if self.config['weights']['gan']['fake'] != 0:
+            wandb_log['GAN fake Loss'] = Lgan[1]['fake_loss'].item()
+        if self.config['weights']['gan']['adversarial'] != 0:
+            wandb_log['GAN adversarial Loss'] = Lgan[1]['adversarial_loss'].item()
+
+        
+        # if p.config['weights']['gan']['feature_matching'] != 0:
+        #     wandb_log['Gan feature Loss'] = Lgan[1]['feature_matching_loss'].item()
+
+        if self.config["training"]["use_wandb"]:
+            wandb.log(wandb_log)
+
         return total_loss
 
     def train_dataloader(self):
