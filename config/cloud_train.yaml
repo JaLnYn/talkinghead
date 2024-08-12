@@ -1,20 +1,20 @@
 training:
-  name: 'cloud_train'
+  name: 'cloud_train_final'
   use_wandb: True 
   data_path: 'dataset/mp4'
   learning_rate: 0.000001
   num_epochs: 100
-  batch_size: 8 
-  epochs_per_stage: 5
+  batch_size: 16 
+  epochs_per_stage: 10 
   transition_epochs: 5
   initial_resolution: 16
   final_resolution: 256
 
 weights:
   irfd:
-    i: 0.1
-    e: 0.1
-    p: 0.1
+    i: 0.0001
+    e: 0.0001
+    p: 0.0001
   gan:
     real: 0.2
     fake: 0.6

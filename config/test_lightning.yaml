@@ -1,13 +1,13 @@
 training:
   name: 'test_lightning'
   use_wandb: True 
-  model_path: 'models/portrait/test_lightning'
+  model_path: 'models/portrait/'
   data_path: 'dataset/mp4'
   learning_rate: 0.000001
   num_epochs: 100
   batch_size: 24 
-  epochs_per_stage: 8 
-  transition_epochs: 4
+  epochs_per_stage: 1 
+  transition_epochs: 1
   initial_resolution: 16
   final_resolution: 256
 

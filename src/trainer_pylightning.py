@@ -14,6 +14,7 @@ import tqdm
 from src.dataloader import VideoDataset, transform
 from src.model.loss import PerceptualLoss, GANLoss, CycleConsistencyLoss, IEPLoss
 from src.model.portrait import Portrait
+from lightning.pytorch.callbacks import ModelCheckpoint
 
 
 def collate_frames(batch):
@@ -78,6 +79,7 @@ class PortraitTrainer(pl.LightningModule):
         self.transition_epochs = config["training"]["transition_epochs"]
         self.epochs_per_full_stage = self.epochs_per_stage + self.transition_epochs
 
+
     def forward(self, x):
         return self.p(x)
 
@@ -98,7 +100,8 @@ class PortraitTrainer(pl.LightningModule):
         Xsp = Xsp[:min_batch_size]
         Xdp = Xdp[:min_batch_size]
 
-        current_resolution = min(self.initial_resolution * 2 ** (epoch // self.epochs_per_full_stage), self.final_resolution)
+        current_resolution = min(self.initial_resolution * 2 ** (self.current_epoch // self.epochs_per_full_stage), self.final_resolution)
+        print("stats", epoch, current_resolution)
         step = int(math.log2(current_resolution)) - 2
         in_transition = (epoch % self.epochs_per_full_stage) >= self.epochs_per_stage
 
@@ -139,7 +142,7 @@ class PortraitTrainer(pl.LightningModule):
         self.log('Lgan', Lgan[0])
         self.log('Liep', Liep[0])
 
-        if batch_idx % 100 == 0 and self.config["training"]["use_wandb"]:
+        if batch_idx % 5000 == 0 and self.config["training"]["use_wandb"]:
             wandb.log({
                 'Example Source': wandb.Image(Xs[0].cpu().detach().numpy().transpose(1, 2, 0)),
                 'Example Driver': wandb.Image(Xd[0].cpu().detach().numpy().transpose(1, 2, 0)),
@@ -184,6 +187,17 @@ class PortraitTrainer(pl.LightningModule):
     def train_dataloader(self):
         return load_data(root_dir=self.config["training"]["data_path"], transform=transform, batch_size=self.config["training"]["batch_size"])
 
+    # def on_save_checkpoint(self, checkpoint):
+    #     # Here you can add anything to the checkpoint dictionary
+    #     print("saving", self.current_resolution)
+    #     checkpoint['current_resolution'] = self.current_resolution
+
+    # def on_load_checkpoint(self, checkpoint):
+    #     # Here you can load anything from the checkpoint dictionary
+    #     self.current_resolution = checkpoint.get('current_resolution', self.config["training"]["initial_resolution"])
+    #     print("loading", self.current_resolution)
+
+
     # def on_train_epoch_end(self):
     #     checkpoint_path = f"./models/portrait/{self.config['training']['name']}/epoch{self.current_epoch}/"
     #     self.p.save_model(path=checkpoint_path, epoch=self.current_epoch, optimizer=self.optimizers(), current_resolution=self.initial_resolution)
@@ -213,15 +227,23 @@ def main():
 
     if config["training"]["use_wandb"]:
         wandb.init(project='portrait_project', resume="allow", config=config)
+    
+    checkpoint_callback = ModelCheckpoint(
+        monitor='total_loss',
+        dirpath=config["training"]["model_path"]+"/"+config["training"]["name"],
+        filename='portrait-{epoch:02d}-{total_loss:.2f}',
+        save_top_k=2,
+        mode='min',
+    )
 
     # latest_checkpoint = find_latest_checkpoint(config["training"]["model_path"])
 
-    trainer = pl.Trainer(default_root_dir=config["training"]["model_path"], max_epochs=config["training"]["num_epochs"], devices=-1 if torch.cuda.is_available() else 0, accelerator="gpu" if torch.cuda.is_available() else None, strategy='ddp_find_unused_parameters_true', enable_checkpointing=True
+    trainer = pl.Trainer(max_epochs=config["training"]["num_epochs"], devices=-1 if torch.cuda.is_available() else 0, accelerator="gpu" if torch.cuda.is_available() else None, strategy='ddp_find_unused_parameters_true', callbacks=[checkpoint_callback]
 )
 
     model = PortraitTrainer(config)
 
-    trainer.fit(model, ckpt_path="last")
+    trainer.fit(model, ckpt_path="portrait-epoch=07-total_loss=0.92.ckpt")
 
 
 if __name__ == '__main__':
