@@ -1,8 +1,8 @@
 training:
-  name: 'cloud_train_lightning'
+  name: 'test_lightning'
   use_wandb: True 
-  model_path: 'models/portrait/cloud_train_lightning'
-  data_path: '../video_data_cleaner/filtered_scores.txt'  
+  model_path: 'models/portrait/test_lightning'
+  data_path: 'dataset/mp4'
   learning_rate: 0.000001
   num_epochs: 100
   batch_size: 24 

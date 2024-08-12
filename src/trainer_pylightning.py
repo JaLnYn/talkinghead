@@ -184,19 +184,19 @@ class PortraitTrainer(pl.LightningModule):
     def train_dataloader(self):
         return load_data(root_dir=self.config["training"]["data_path"], transform=transform, batch_size=self.config["training"]["batch_size"])
 
-    def on_train_epoch_end(self):
-        checkpoint_path = f"./models/portrait/{self.config['training']['name']}/epoch{self.current_epoch}/"
-        self.p.save_model(path=checkpoint_path, epoch=self.current_epoch, optimizer=self.optimizers(), current_resolution=self.initial_resolution)
-        print(f'Epoch {self.current_epoch + 1}, Average Loss: {self.trainer.callback_metrics["total_loss"].item():.4f}')
+    # def on_train_epoch_end(self):
+    #     checkpoint_path = f"./models/portrait/{self.config['training']['name']}/epoch{self.current_epoch}/"
+    #     self.p.save_model(path=checkpoint_path, epoch=self.current_epoch, optimizer=self.optimizers(), current_resolution=self.initial_resolution)
+    #     print(f'Epoch {self.current_epoch + 1}, Average Loss: {self.trainer.callback_metrics["total_loss"].item():.4f}')
 
-def find_latest_checkpoint(checkpoint_dir):
-    print(checkpoint_dir)
-    checkpoint_files = [os.path.join(checkpoint_dir, f) for f in os.listdir(checkpoint_dir) if f.endswith('.pth')]
-    print(checkpoint_files)
-    if not checkpoint_files:
-        return None
-    latest_checkpoint = max(checkpoint_files, key=os.path.getctime)
-    return latest_checkpoint
+# def find_latest_checkpoint(checkpoint_dir):
+#     print(checkpoint_dir)
+#     checkpoint_files = [os.path.join(checkpoint_dir, f) for f in os.listdir(checkpoint_dir) if f.endswith('.pth')]
+#     print(checkpoint_files)
+#     if not checkpoint_files:
+#         return None
+#     latest_checkpoint = max(checkpoint_files, key=os.path.getctime)
+#     return latest_checkpoint
 
 def main():
     import argparse
@@ -214,20 +214,14 @@ def main():
     if config["training"]["use_wandb"]:
         wandb.init(project='portrait_project', resume="allow", config=config)
 
-    latest_checkpoint = find_latest_checkpoint(config["training"]["model_path"])
+    # latest_checkpoint = find_latest_checkpoint(config["training"]["model_path"])
 
     trainer = pl.Trainer(default_root_dir=config["training"]["model_path"], max_epochs=config["training"]["num_epochs"], devices=-1 if torch.cuda.is_available() else 0, accelerator="gpu" if torch.cuda.is_available() else None, strategy='ddp_find_unused_parameters_true', enable_checkpointing=True
 )
 
-    print("found checkpoint", latest_checkpoint)
-    if latest_checkpoint:
-        print(f"Resuming from checkpoint: {latest_checkpoint}")
-        model = PortraitTrainer.load_from_checkpoint(latest_checkpoint)
-    else:
-        print("initializing model")
-        model = PortraitTrainer(config)
+    model = PortraitTrainer(config)
 
-    trainer.fit(model)
+    trainer.fit(model, ckpt_path="last")
 
 
 if __name__ == '__main__':
