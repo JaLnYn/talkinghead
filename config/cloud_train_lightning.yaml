@@ -2,12 +2,12 @@ training:
   name: 'cloud_train_lightning'
   use_wandb: True 
   model_path: 'models/portrait'
-  data_path: '../video_data_cleaner/quality_scores.txt'  
+  data_path: '../video_data_cleaner/filtered_scores.txt'  
   learning_rate: 0.000001
   num_epochs: 100
   batch_size: 24 
-  epochs_per_stage: 10 
-  transition_epochs: 5
+  epochs_per_stage: 8 
+  transition_epochs: 4
   initial_resolution: 16
   final_resolution: 256
 
