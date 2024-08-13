@@ -101,7 +101,6 @@ class PortraitTrainer(pl.LightningModule):
         Xdp = Xdp[:min_batch_size]
 
         current_resolution = min(self.initial_resolution * 2 ** (self.current_epoch // self.epochs_per_full_stage), self.final_resolution)
-        print("stats", epoch, current_resolution)
         step = int(math.log2(current_resolution)) - 2
         in_transition = (epoch % self.epochs_per_full_stage) >= self.epochs_per_stage
 
