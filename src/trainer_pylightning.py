@@ -234,16 +234,17 @@ def main():
         filename='portrait-{epoch:02d}-{total_loss:.2f}',
         save_top_k=2,
         mode='min',
+        save_last=True,
     )
 
     # latest_checkpoint = find_latest_checkpoint(config["training"]["model_path"])
 
-    trainer = pl.Trainer(max_epochs=config["training"]["num_epochs"], devices=-1 if torch.cuda.is_available() else 0, accelerator="gpu" if torch.cuda.is_available() else None, strategy='ddp_find_unused_parameters_true', callbacks=[checkpoint_callback]
+    trainer = pl.Trainer(default_root_dir=config["training"]["model_path"]+"/"+config["training"]["name"], max_epochs=config["training"]["num_epochs"], devices=-1 if torch.cuda.is_available() else 0, accelerator="gpu" if torch.cuda.is_available() else None, strategy='ddp_find_unused_parameters_true', callbacks=[checkpoint_callback]
 )
 
     model = PortraitTrainer(config)
 
-    trainer.fit(model, ckpt_path="portrait-epoch=07-total_loss=0.92.ckpt")
+    trainer.fit(model, ckpt_path="last")
 
 
 if __name__ == '__main__':
