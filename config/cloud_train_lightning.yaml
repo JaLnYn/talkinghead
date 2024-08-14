@@ -6,7 +6,7 @@ training:
   learning_rate: 0.000001
   num_epochs: 100
   batch_size: 24 
-  epochs_per_stage: 8 
+  epochs_per_stage: 4 
   transition_epochs: 4
   initial_resolution: 16
   final_resolution: 256
